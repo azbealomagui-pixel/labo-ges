@@ -8,7 +8,7 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 10000
+  timeout: 30000 // ← PASSER DE 10000 À 30000 (30 secondes)
 });
 
 // Intercepteur pour ajouter le token JWT à chaque requête
