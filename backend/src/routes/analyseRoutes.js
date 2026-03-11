@@ -1,7 +1,7 @@
 // ===========================================
 // FICHIER: analyseRoutes.js
 // RÔLE: Routes pour le catalogue d'analyses
-// VERSION: Corrigée et optimisée
+// VERSION: Avec vérification intelligente des doublons
 // ===========================================
 
 const express = require('express');
@@ -20,10 +20,8 @@ router.post('/', async (req, res) => {
       categorie, 
       prix,
       uniteMesure,
-      valeursReference, 
-      valeursAlertes, 
-      delaiRendu,
       typeEchantillon, 
+      delaiRendu,
       instructions, 
       laboratoireId, 
       createdBy 
@@ -48,16 +46,27 @@ router.post('/', async (req, res) => {
       });
     }
 
-    // ===== VÉRIFICATION DU CODE UNIQUE =====
-    const existing = await Analyse.findOne({ 
+    // ===== VÉRIFICATION INTELLIGENTE DES DOUBLONS =====
+    // Vérifie si une analyse avec les MÊMES caractéristiques existe
+    const existingAnalyse = await Analyse.findOne({
+      laboratoireId,
       code: code.toUpperCase(),
-      laboratoireId 
+      'nom.fr': nom.fr,
+      categorie: categorie,
+      'prix.valeur': prix.valeur,
+      typeEchantillon: typeEchantillon
     });
-    
-    if (existing) {
+
+    if (existingAnalyse) {
       return res.status(409).json({
         success: false,
-        message: 'Ce code d\'analyse existe déjà pour ce laboratoire'
+        message: 'Une analyse identique existe déjà dans ce laboratoire',
+        existingAnalyse: {
+          id: existingAnalyse._id,
+          code: existingAnalyse.code,
+          nom: existingAnalyse.nom.fr,
+          dateCreation: existingAnalyse.createdAt
+        }
       });
     }
 
@@ -75,8 +84,6 @@ router.post('/', async (req, res) => {
         devise: prix.devise || 'EUR'
       },
       uniteMesure: uniteMesure?.trim() || '-',
-      valeursReference: valeursReference || {},
-      valeursAlertes: valeursAlertes || {},
       delaiRendu: Number(delaiRendu) || 24,
       typeEchantillon,
       instructions: instructions?.trim() || '',
@@ -105,6 +112,14 @@ router.post('/', async (req, res) => {
           field: key,
           message: error.errors[key].message
         }))
+      });
+    }
+
+    // Erreur de doublon sur un index unique (au cas où)
+    if (error.code === 11000) {
+      return res.status(409).json({
+        success: false,
+        message: 'Conflit : cette analyse existe déjà'
       });
     }
 

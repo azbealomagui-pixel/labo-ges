@@ -1,17 +1,17 @@
 // ===========================================
 // PAGE: AnalyseForm
 // RÔLE: Création/édition d'une analyse
+// AVEC: Sélecteur de devise et bouton retour corrigé
 // ===========================================
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
 import AnalyseCodeField from '../components/analyses/AnalyseCodeField';
-import Fuse from 'fuse.js'; // Pour la recherche floue
 
-// Liste des catégories (extensible)
+// Liste des catégories et devises
 const CATEGORIES = [
   'Hématologie',
   'Biochimie',
@@ -24,49 +24,35 @@ const CATEGORIES = [
   'Autre'
 ];
 
-// Configuration de la recherche floue
-const fuseOptions = {
-  includeScore: true,
-  threshold: 0.3,
-  keys: ['name']
-};
+const CURRENCIES = [
+  { code: 'EUR', symbole: '€', nom: 'Euro' },
+  { code: 'USD', symbole: '$', nom: 'Dollar américain' },
+  { code: 'GNF', symbole: 'FG', nom: 'Franc guinéen' },
+  { code: 'XOF', symbole: 'CFA', nom: 'Franc CFA' },
+  { code: 'GBP', symbole: '£', nom: 'Livre sterling' },
+  { code: 'MAD', symbole: 'DH', nom: 'Dirham marocain' },
+  { code: 'DZD', symbole: 'DA', nom: 'Dinar algérien' },
+  { code: 'TND', symbole: 'DT', nom: 'Dinar tunisien' }
+];
 
 const AnalyseForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
-  const [categorySearch, setCategorySearch] = useState('');
-  const [showCategorySuggestions, setShowCategorySuggestions] = useState(false);
-  
   const [formData, setFormData] = useState({
     code: '',
     nom: { fr: '', en: '', es: '' },
     categorie: 'Hématologie',
     prix: { valeur: 0, devise: 'EUR' },
+    uniteMesure: '-',
     typeEchantillon: 'Sang',
     delaiRendu: 24,
     instructions: ''
   });
 
-  // Préparer les données pour la recherche floue
-  const categoryItems = useMemo(() => 
-    CATEGORIES.map(cat => ({ name: cat })), []
-  );
-
-  // Initialiser Fuse
-  const fuse = useMemo(() => 
-    new Fuse(categoryItems, fuseOptions), [categoryItems]
-  );
-
-  // Obtenir les suggestions de catégories
-  const getCategorySuggestions = () => {
-    if (!categorySearch.trim()) return CATEGORIES;
-    const results = fuse.search(categorySearch);
-    return results.map(r => r.item.name);
-  };
-
-  const suggestions = getCategorySuggestions();
+  // État pour gérer le conflit de doublon
+  const [duplicateError, setDuplicateError] = useState(null);
 
   // Charger les données en mode édition
   useEffect(() => {
@@ -120,29 +106,32 @@ const AnalyseForm = () => {
         prix: { ...prev.prix, valeur: parseFloat(value) || 0 }
       }));
     }
-    else if (name === 'categorie') {
-      setFormData(prev => ({ ...prev, categorie: value }));
-      setCategorySearch(value);
+    else if (name === 'prix.devise') {
+      setFormData(prev => ({
+        ...prev,
+        prix: { ...prev.prix, devise: value }
+      }));
     }
     else {
       setFormData(prev => ({ ...prev, [name]: value }));
     }
-  };
 
-  const handleCategorySelect = (category) => {
-    setFormData(prev => ({ ...prev, categorie: category }));
-    setCategorySearch(category);
-    setShowCategorySuggestions(false);
+    // Réinitialiser l'erreur de doublon quand l'utilisateur modifie
+    setDuplicateError(null);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setDuplicateError(null);
+
+    // Déclaration de dataToSend en dehors du try pour qu'il soit accessible partout
+    let dataToSend;
 
     try {
-      const dataToSend = {
+      dataToSend = {
         ...formData,
-        uniteMesure: '-',
+        uniteMesure: formData.uniteMesure || '-',
         laboratoireId: user?.laboratoireId,
         createdBy: user?._id
       };
@@ -152,18 +141,50 @@ const AnalyseForm = () => {
       if (id) {
         await api.put(`/analyses/${id}`, dataToSend);
         toast.success('Analyse modifiée avec succès');
+        navigate('/analyses');
       } else {
         await api.post('/analyses', dataToSend);
         toast.success('Analyse créée avec succès');
+        navigate('/analyses');
       }
-      navigate('/analyses');
     } catch (err) {
-      console.error('Erreur sauvegarde:', err);
-      toast.error(err.response?.data?.message || 'Erreur lors de la sauvegarde');
+      console.error('❌ Erreur sauvegarde:', err);
+      
+      // Gestion spéciale pour les doublons (409)
+      if (err.response?.status === 409) {
+        const existing = err.response.data.existingAnalyse;
+        setDuplicateError({
+          message: err.response.data.message,
+          existing: existing
+        });
+        
+        // Demander confirmation à l'utilisateur
+        if (window.confirm(
+          `⚠️ Une analyse identique existe déjà !\n\n` +
+          `Code: ${existing.code}\n` +
+          `Nom: ${existing.nom}\n` +
+          `Créée le: ${new Date(existing.dateCreation).toLocaleDateString()}\n\n` +
+          `Voulez-vous quand même créer cette analyse ?`
+        )) {
+          // L'utilisateur confirme, on force la création en ignorant la vérification
+          try {
+            await api.post('/analyses', dataToSend, {
+              headers: { 'X-Ignore-Duplicate': 'true' }
+            });
+            toast.success('Analyse créée avec succès (malgré le doublon)');
+            navigate('/analyses');
+          } catch (forceError) {
+            console.error('❌ Erreur création forcée:', forceError);
+            toast.error('Erreur lors de la création forcée');
+          }
+        }
+      } else {
+        toast.error(err.response?.data?.message || 'Erreur lors de la sauvegarde');
+      }
     } finally {
       setLoading(false);
     }
-  };
+};
 
   if (loading && id) {
     return (
@@ -178,26 +199,44 @@ const AnalyseForm = () => {
       <div className="max-w-3xl mx-auto px-4">
         <div className="bg-white rounded-xl shadow-lg p-8">
           
-          {/* Navigation */}
+          {/* Navigation - BOUTON RETOUR CORRIGÉ */}
           <div className="mb-6 flex items-center gap-4 border-b pb-4">
             <button 
               onClick={() => navigate('/analyses')} 
-              className="text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
             >
-              ← Retour catalogue
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Retour catalogue
             </button>
             <span className="text-gray-300">|</span>
             <button 
               onClick={() => navigate('/dashboard')} 
-              className="text-gray-600 hover:text-gray-900 transition-colors"
+              className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
             >
-              🏠 Dashboard
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Dashboard
             </button>
           </div>
 
           <h1 className="text-2xl font-bold mb-6">
             {id ? 'Modifier' : 'Nouvelle'} analyse
           </h1>
+
+          {/* Message d'erreur de doublon */}
+          {duplicateError && (
+            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-yellow-800 font-medium">⚠️ {duplicateError.message}</p>
+              {duplicateError.existing && (
+                <p className="text-sm text-yellow-600 mt-1">
+                  Analyse existante créée le {new Date(duplicateError.existing.dateCreation).toLocaleDateString()}
+                </p>
+              )}
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
             
@@ -209,19 +248,20 @@ const AnalyseForm = () => {
               required={true}
             />
 
-            {/* Noms multilingues (optionnels) */}
+            {/* Noms multilingues */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">
-                  Nom (FR)
+                  Nom (FR) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
                   name="nom.fr"
                   value={formData.nom.fr}
                   onChange={handleChange}
+                  required
                   className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
-                  placeholder="Nom en français (optionnel)"
+                  placeholder="Nom en français"
                 />
               </div>
               <div>
@@ -233,7 +273,7 @@ const AnalyseForm = () => {
                   name="nom.en"
                   value={formData.nom.en}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 bg-gray-50"
                   placeholder="Nom en anglais (optionnel)"
                 />
               </div>
@@ -246,71 +286,72 @@ const AnalyseForm = () => {
                   name="nom.es"
                   value={formData.nom.es}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 bg-gray-50"
                   placeholder="Nom en espagnol (optionnel)"
                 />
               </div>
             </div>
 
-            {/* Catégorie avec autocomplétion */}
-            <div className="relative">
-              <label className="block text-sm font-medium mb-2">
-                Catégorie *
-              </label>
-              <input
-                type="text"
-                name="categorie"
-                value={categorySearch || formData.categorie}
-                onChange={(e) => {
-                  setCategorySearch(e.target.value);
-                  setFormData(prev => ({ ...prev, categorie: e.target.value }));
-                }}
-                onFocus={() => setShowCategorySuggestions(true)}
-                onBlur={() => setTimeout(() => setShowCategorySuggestions(false), 200)}
-                required
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
-                placeholder="Tapez ou sélectionnez une catégorie"
-                autoComplete="off"
-              />
-              
-              {/* Suggestions dropdown */}
-              {showCategorySuggestions && suggestions.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border rounded-lg shadow-lg max-h-60 overflow-y-auto">
-                  {suggestions.map((cat) => (
-                    <button
-                      key={cat}
-                      type="button"
-                      className="w-full text-left px-4 py-2 hover:bg-gray-50 border-b last:border-b-0 transition-colors"
-                      onClick={() => handleCategorySelect(cat)}
-                    >
-                      {cat}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Prix */}
+            {/* Catégorie */}
             <div>
               <label className="block text-sm font-medium mb-2">
-                Prix (€) *
+                Catégorie <span className="text-red-500">*</span>
               </label>
-              <input
-                type="number"
-                name="prix.valeur"
-                value={formData.prix.valeur}
+              <select
+                name="categorie"
+                value={formData.categorie}
                 onChange={handleChange}
                 required
-                min="0"
-                step="0.01"
                 className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
-              />
+              >
+                {CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Prix et Devise */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Prix <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  name="prix.valeur"
+                  value={formData.prix.valeur}
+                  onChange={handleChange}
+                  required
+                  min="0"
+                  step="0.01"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+                  placeholder="Montant"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Devise <span className="text-red-500">*</span>
+                </label>
+                <select
+                  name="prix.devise"
+                  value={formData.prix.devise}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+                >
+                  {CURRENCIES.map(dev => (
+                    <option key={dev.code} value={dev.code}>
+                      {dev.nom} ({dev.symbole})
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             {/* Type échantillon */}
             <div>
               <label className="block text-sm font-medium mb-2">
-                Type échantillon *
+                Type d'échantillon <span className="text-red-500">*</span>
               </label>
               <select
                 name="typeEchantillon"
@@ -328,23 +369,38 @@ const AnalyseForm = () => {
               </select>
             </div>
 
-            {/* Délai (optionnel) */}
-            <div>
-              <label className="block text-sm font-medium mb-2">
-                Délai (heures)
-              </label>
-              <input
-                type="number"
-                name="delaiRendu"
-                value={formData.delaiRendu}
-                onChange={handleChange}
-                min="1"
-                max="720"
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
-              />
+            {/* Délai et Instructions */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Délai de rendu (heures)
+                </label>
+                <input
+                  type="number"
+                  name="delaiRendu"
+                  value={formData.delaiRendu}
+                  onChange={handleChange}
+                  min="1"
+                  max="720"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Unité de mesure
+                </label>
+                <input
+                  type="text"
+                  name="uniteMesure"
+                  value={formData.uniteMesure}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+                  placeholder="ex: g/L, mmol/L"
+                />
+              </div>
             </div>
 
-            {/* Instructions (optionnel) */}
+            {/* Instructions */}
             <div>
               <label className="block text-sm font-medium mb-2">
                 Instructions
