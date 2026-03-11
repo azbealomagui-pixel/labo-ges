@@ -3,19 +3,14 @@
 // RÔLE: Création/édition d'une analyse
 // ===========================================
 
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
+import AnalyseCodeField from '../components/analyses/AnalyseCodeField';
 
-
-// ===========================================
-// CONSTANTES (à placer après les imports)
-// ===========================================
-
-// Liste des catégories d'analyses (extensible facilement)
+// Liste des catégories (extensible)
 const CATEGORIES = [
   'Hématologie',
   'Biochimie',
@@ -33,6 +28,7 @@ const AnalyseForm = () => {
   const { id } = useParams();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  // La langue sera utilisée plus tard pour l'internationalisation
   const [formData, setFormData] = useState({
     code: '',
     nom: { fr: '', en: '', es: '' },
@@ -44,6 +40,7 @@ const AnalyseForm = () => {
     instructions: ''
   });
 
+  // Charger les données en mode édition
   useEffect(() => {
     if (id) {
       const loadAnalyse = async () => {
@@ -63,16 +60,40 @@ const AnalyseForm = () => {
     }
   }, [id, navigate]);
 
+  // Gestionnaire quand une analyse est trouvée par code
+  const handleAnalyseFound = (analyse) => {
+    setFormData(prev => ({
+      ...prev,
+      code: analyse.code || prev.code,
+      nom: analyse.nom || { fr: '', en: '', es: '' },
+      prix: analyse.prix || { valeur: 0, devise: 'EUR' },
+      categorie: analyse.categorie || prev.categorie,
+      typeEchantillon: analyse.typeEchantillon || prev.typeEchantillon,
+      delaiRendu: analyse.delaiRendu || prev.delaiRendu,
+      instructions: analyse.instructions || prev.instructions
+    }));
+    
+    toast.info(`Analyse trouvée : ${analyse.nom?.fr || 'Analyse'}`);
+  };
+
   const handleChange = (e) => {
     const { name, value } = e.target;
+    
     if (name.startsWith('nom.')) {
       const lang = name.split('.')[1];
-      setFormData({
-        ...formData,
-        nom: { ...formData.nom, [lang]: value }
-      });
-    } else {
-      setFormData({ ...formData, [name]: value });
+      setFormData(prev => ({
+        ...prev,
+        nom: { ...prev.nom, [lang]: value }
+      }));
+    } 
+    else if (name === 'prix.valeur') {
+      setFormData(prev => ({
+        ...prev,
+        prix: { ...prev.prix, valeur: parseFloat(value) || 0 }
+      }));
+    }
+    else {
+      setFormData(prev => ({ ...prev, [name]: value }));
     }
   };
 
@@ -83,38 +104,52 @@ const AnalyseForm = () => {
     try {
       const dataToSend = {
         ...formData,
-        laboratoireId: user.laboratoireId,
-        createdBy: user._id
+        laboratoireId: user?.laboratoireId,
+        createdBy: user?._id
       };
 
       if (id) {
         await api.put(`/analyses/${id}`, dataToSend);
-        toast.success('Analyse modifiée');
+        toast.success('Analyse modifiée avec succès');
       } else {
         await api.post('/analyses', dataToSend);
-        toast.success('Analyse créée');
+        toast.success('Analyse créée avec succès');
       }
       navigate('/analyses');
     } catch (err) {
       console.error('Erreur sauvegarde:', err);
-      toast.error(err.response?.data?.message || 'Erreur sauvegarde');
+      toast.error(err.response?.data?.message || 'Erreur lors de la sauvegarde');
     } finally {
       setLoading(false);
     }
   };
+
+  if (loading && id) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary-600 border-t-transparent"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-3xl mx-auto px-4">
         <div className="bg-white rounded-xl shadow-lg p-8">
           
-          {/* Boutons retour */}
+          {/* Navigation */}
           <div className="mb-6 flex items-center gap-4 border-b pb-4">
-            <button onClick={() => navigate('/analyses')} className="text-gray-600 hover:text-gray-900">
+            <button 
+              onClick={() => navigate('/analyses')} 
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
               ← Retour catalogue
             </button>
-            <span>|</span>
-            <button onClick={() => navigate('/dashboard')} className="text-gray-600 hover:text-gray-900">
+            <span className="text-gray-300">|</span>
+            <button 
+              onClick={() => navigate('/dashboard')} 
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
               🏠 Dashboard
             </button>
           </div>
@@ -124,146 +159,160 @@ const AnalyseForm = () => {
           </h1>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Code */}
-            <div>
-              <label className="block text-sm font-medium mb-2">Code *</label>
-              <input
-                type="text"
-                name="code"
-                value={formData.code}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border rounded-lg"
-                placeholder="ex: NFS001"
-              />
-            </div>
+            
+            {/* Code avec autocomplétion */}
+            <AnalyseCodeField
+              value={formData.code}
+              onChange={handleChange}
+              onAnalyseFound={handleAnalyseFound}
+              required={true}
+            />
 
-            {/* Nom multilingue */}
-            <div className="grid grid-cols-3 gap-4">
+            {/* Noms multilingues */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Nom (FR) *</label>
+                <label className="block text-sm font-medium mb-2">
+                  Nom (FR) *
+                </label>
                 <input
                   type="text"
                   name="nom.fr"
                   value={formData.nom.fr}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2 border rounded-lg"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+                  placeholder="Nom en français"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Nom (EN)</label>
+                <label className="block text-sm font-medium mb-2">
+                  Nom (EN)
+                </label>
                 <input
                   type="text"
                   name="nom.en"
                   value={formData.nom.en}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border rounded-lg"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 bg-gray-50"
+                  placeholder="Nom en anglais (optionnel)"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Nom (ES)</label>
+                <label className="block text-sm font-medium mb-2">
+                  Nom (ES)
+                </label>
                 <input
                   type="text"
                   name="nom.es"
                   value={formData.nom.es}
                   onChange={handleChange}
-                  className="w-full px-4 py-2 border rounded-lg"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500 bg-gray-50"
+                  placeholder="Nom en espagnol (optionnel)"
                 />
               </div>
             </div>
 
             {/* Catégorie et prix */}
-            <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">Catégorie *</label>
-              <select
-                name="categorie"
-                value={formData.categorie}
-                onChange={handleChange}
-                required
-                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500">
-                <option value="">Sélectionnez une catégorie</option>
-                {CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Prix (€) *</label>
+                <label className="block text-sm font-medium mb-2">
+                  Catégorie *
+                </label>
+                <select
+                  name="categorie"
+                  value={formData.categorie}
+                  onChange={handleChange}
+                  required
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+                >
+                  {CATEGORIES.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">
+                  Prix (€) *
+                </label>
                 <input
                   type="number"
                   name="prix.valeur"
                   value={formData.prix.valeur}
-                  onChange={(e) => setFormData({
-                    ...formData,
-                    prix: { ...formData.prix, valeur: parseFloat(e.target.value) }
-                  })}
+                  onChange={handleChange}
                   required
                   min="0"
                   step="0.01"
-                  className="w-full px-4 py-2 border rounded-lg"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
             </div>
 
             {/* Type échantillon et délai */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Type échantillon *</label>
+                <label className="block text-sm font-medium mb-2">
+                  Type échantillon *
+                </label>
                 <select
                   name="typeEchantillon"
                   value={formData.typeEchantillon}
                   onChange={handleChange}
                   required
-                  className="w-full px-4 py-2 border rounded-lg"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
                 >
-                  <option>Sang</option>
-                  <option>Urine</option>
-                  <option>Selles</option>
-                  <option>LCR</option>
-                  <option>Prélèvement</option>
+                  <option value="Sang">Sang</option>
+                  <option value="Urine">Urine</option>
+                  <option value="Selles">Selles</option>
+                  <option value="LCR">LCR</option>
+                  <option value="Prélèvement">Prélèvement</option>
+                  <option value="Autre">Autre</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Délai (heures)</label>
+                <label className="block text-sm font-medium mb-2">
+                  Délai (heures)
+                </label>
                 <input
                   type="number"
                   name="delaiRendu"
                   value={formData.delaiRendu}
                   onChange={handleChange}
                   min="1"
-                  className="w-full px-4 py-2 border rounded-lg"
+                  max="720"
+                  className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
               </div>
             </div>
 
             {/* Instructions */}
             <div>
-              <label className="block text-sm font-medium mb-2">Instructions</label>
+              <label className="block text-sm font-medium mb-2">
+                Instructions
+              </label>
               <textarea
                 name="instructions"
                 value={formData.instructions}
                 onChange={handleChange}
                 rows="3"
-                className="w-full px-4 py-2 border rounded-lg"
+                className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
                 placeholder="Conditions particulières, préparation du patient..."
               />
             </div>
 
-            {/* Boutons */}
+            {/* Boutons d'action */}
             <div className="flex gap-4 pt-4">
               <button
                 type="submit"
                 disabled={loading}
-                className="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+                className="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 font-medium"
               >
                 {loading ? 'Enregistrement...' : (id ? 'Modifier' : 'Créer')}
               </button>
               <button
                 type="button"
                 onClick={() => navigate('/analyses')}
-                className="flex-1 bg-gray-200 px-6 py-3 rounded-lg hover:bg-gray-300"
+                disabled={loading}
+                className="flex-1 bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 font-medium"
               >
                 Annuler
               </button>
