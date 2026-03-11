@@ -52,6 +52,22 @@ const Devis = () => {
     }
   }, [user?.laboratoireId]); // Dépendance correcte
 
+  // Supprimer un devis
+const handleDelete = async (id) => {
+  if (!window.confirm('Voulez-vous vraiment supprimer ce devis ?')) return;
+  
+  try {
+    await api.delete(`/devis/${id}`);
+    toast.success('Devis supprimé');
+    // Recharger la liste
+    const response = await api.get(`/devis/labo/${user.laboratoireId}`);
+    setDevis(response.data.devis || []);
+    } catch (err) {
+    console.error('Erreur suppression devis:', err);
+    toast.error('Erreur lors de la suppression');
+    }
+  };
+
   const getStatusBadge = (statut) => {
     const styles = {
       brouillon: 'bg-gray-100 text-gray-800',
@@ -145,19 +161,26 @@ const Devis = () => {
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex gap-2">
+                      {/* Bouton modifier */}
                       <button
                         onClick={() => navigate(`/devis/${d._id}`)}
                         className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                        title="Voir le devis"
-                      >
-                        <img src={IconEdit} alt="Voir" className="w-5 h-5" />
+                        title="Voir/Modifier le devis">
+                        <img src={IconEdit} alt="Modifier" className="w-5 h-5" />
                       </button>
+                      {/* Bouton PDF */}
                       <button
                         onClick={() => genererPDFDevis(d, laboratoire)}
                         className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                        title="Télécharger PDF"
-                      >
+                        title="Télécharger PDF">
                         <img src={IconPrinter} alt="PDF" className="w-5 h-5" />
+                      </button>
+                       {/* Bouton supprimer */}
+                      <button
+                        onClick={() => handleDelete(d._id)}
+                        className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                        title="Supprimer le devis">
+                        <img src={IconDelete} alt="Supprimer" className="w-5 h-5" />
                       </button>
                     </div>
                   </td>

@@ -4,15 +4,16 @@
 // ===========================================
 
 /**
- * Formate une date au format français
+ * Formate une date au format français (JJ/MM/AAAA)
  * @param {string|Date} date - La date à formater
- * @returns {string} Date formatée (JJ/MM/AAAA)
+ * @returns {string} Date formatée ou message d'erreur
  */
 export const formatDate = (date) => {
   if (!date) return 'Date non disponible';
   
   try {
     const d = new Date(date);
+    // Vérifier si la date est valide
     if (isNaN(d.getTime())) return 'Date invalide';
     
     return d.toLocaleDateString('fr-FR', {
