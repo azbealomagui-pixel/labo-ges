@@ -9,7 +9,7 @@ Application professionnelle de gestion de laboratoire médical.
 - Catalogue d'analyses
 - Création de devis
 - Tableau de bord
-- Génération PDF
+- Génération PDF_Assez de soucis
 
 ## Technologies
 
@@ -63,4 +63,4 @@ Remplacez `frontend/public/vite.svg` par un vrai logo (plus tard)
 
 ---
 
-**Faites ces modifications une par une et dites-moi quand c'est prêt !** 🚀
+**Faites ces modifications une par une et dites-moi quand c'est prêt !
