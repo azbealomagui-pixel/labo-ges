@@ -11,6 +11,7 @@ import useAuth from '../hooks/useAuth';
 import { IconAdd, IconEdit, IconDelete, IconSearch } from '../assets';
 import { genererPDFDevis, ouvrirPDF, telechargerPDF } from '../utils/pdfGenerator';
 import { formatDate } from '../utils/formatters';
+import { formaterMontant } from '../../../backend/src/config/currencies'; // À adapter
 
 const Devis = () => {
   const navigate = useNavigate();
@@ -139,7 +140,7 @@ const Devis = () => {
                     {formatDate(d.dateEmission)}
                   </td>
                   <td className="px-6 py-4 font-medium">
-                    {d.totalFormatte || `${d.total?.valeur || 0} €`}
+                    {d.total ? formaterMontant(d.total.valeur, d.devise || 'EUR') : '0 €'}
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusBadge(d.statut)}`}>

@@ -26,11 +26,10 @@ const laboratoireSchema = new mongoose.Schema({
     lowercase: true
   },
    // NOUVEAU : Devise par défaut du laboratoire
-  deviseDefaut: {
+  deviseParDefaut: {
     type: String,
-    enum: Object.keys(currencies), // ['EUR', 'USD', 'XOF', ...]
-    default: 'EUR',
-    required: true
+    enum: ['EUR', 'USD', 'GNF','XOF', 'GBP', 'MAD', 'DZD', 'TND'],
+    default: 'EUR'
   },
   // Abonnement
   abonnement: {
@@ -50,9 +49,14 @@ const laboratoireSchema = new mongoose.Schema({
    // NOUVEAU : Devises acceptées (pour affichage multi-devises)
   devisesAcceptees: [{
     type: String,
-    enum: Object.keys(currencies),
-    default: ['EUR']
+    enum: ['EUR', 'USD', 'GNF', 'XOF', 'GBP', 'MAD', 'DZD', 'TND']
   }],
+
+   langueParDefaut: {
+    type: String,
+    enum: ['fr', 'en', 'es'],
+    default: 'fr'
+  },
 
   // NOUVEAU : Configuration fiscale
   tva: {

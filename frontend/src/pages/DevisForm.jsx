@@ -10,6 +10,18 @@ import api from '../services/api';
 import useAuth from '../hooks/useAuth';
 import { IconAdd, IconDelete, IconSearch } from '../assets';
 
+// Liste des devises disponibles (extensible)
+const CURRENCIES = [
+  { code: 'EUR', symbole: '€', nom: 'Euro' },
+  { code: 'USD', symbole: '$', nom: 'Dollar américain' },
+  { code: 'GNF', symbole: 'FG', nom: 'Franc guinéen' },
+  { code: 'XOF', symbole: 'CFA', nom: 'Franc CFA' },
+  { code: 'GBP', symbole: '£', nom: 'Livre sterling' },
+  { code: 'MAD', symbole: 'DH', nom: 'Dirham marocain' },
+  { code: 'DZD', symbole: 'DA', nom: 'Dinar algérien' },
+  { code: 'TND', symbole: 'DT', nom: 'Dinar tunisien' }
+];
+
 const DevisForm = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -21,6 +33,7 @@ const DevisForm = () => {
   const [searchPatient, setSearchPatient] = useState('');
   const [searchAnalyse, setSearchAnalyse] = useState('');
   const [remise, setRemise] = useState(0);
+  const [selectedDevise, setSelectedDevise] = useState('EUR'); // État pour la devise
 
   // Charger les patients
   useEffect(() => {
@@ -29,7 +42,8 @@ const DevisForm = () => {
         const response = await api.get(`/patients/labo/${user.laboratoireId}`);
         setPatients(response.data.patients || []);
       } catch (err) {
-        console.error('Erreur chargement patients:', err);
+        console.error('❌ Erreur chargement patients:', err);
+        toast.error('Erreur chargement patients');
       }
     };
     fetchPatients();
@@ -42,12 +56,14 @@ const DevisForm = () => {
         const response = await api.get(`/analyses/labo/${user.laboratoireId}`);
         setAnalyses(response.data.analyses || []);
       } catch (err) {
-        console.error('Erreur chargement analyses:', err);
+        console.error('❌ Erreur chargement analyses:', err);
+        toast.error('Erreur chargement analyses');
       }
     };
     fetchAnalyses();
   }, [user.laboratoireId]);
 
+  // Ajouter une analyse au panier
   const addAnalyse = (analyse) => {
     const exists = selectedAnalyses.find(a => a._id === analyse._id);
     if (exists) {
@@ -59,16 +75,22 @@ const DevisForm = () => {
     }
   };
 
+  // Retirer une analyse du panier
   const removeAnalyse = (id) => {
     setSelectedAnalyses(selectedAnalyses.filter(a => a._id !== id));
   };
 
+  // Mettre à jour la quantité d'une analyse
   const updateQuantite = (id, quantite) => {
+    const newQuantite = parseInt(quantite) || 1;
+    if (newQuantite < 1) return;
+    
     setSelectedAnalyses(selectedAnalyses.map(a =>
-      a._id === id ? { ...a, quantite: parseInt(quantite) || 1 } : a
+      a._id === id ? { ...a, quantite: newQuantite } : a
     ));
   };
 
+  // Calculer le total du devis
   const calculTotal = () => {
     const sousTotal = selectedAnalyses.reduce(
       (sum, a) => sum + (a.prix?.valeur || 0) * a.quantite,
@@ -78,9 +100,11 @@ const DevisForm = () => {
     return total.toFixed(2);
   };
 
+  // Soumettre le formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
     
+    // Validations
     if (!selectedPatient) {
       toast.error('Veuillez sélectionner un patient');
       return;
@@ -94,10 +118,12 @@ const DevisForm = () => {
     setLoading(true);
 
     try {
+      // Construction des données du devis
       const devisData = {
         patientId: selectedPatient._id,
         laboratoireId: user.laboratoireId,
         createdBy: user._id,
+        devise: selectedDevise, // ← Devise sélectionnée AJOUTÉE ICI
         lignes: selectedAnalyses.map(a => ({
           analyseId: a._id,
           quantite: a.quantite,
@@ -107,18 +133,30 @@ const DevisForm = () => {
           }
         })),
         remiseGlobale: remise,
-        notes: 'Devis créé depuis l\'interface'
+        notes: `Devis créé par ${user.prenom} ${user.nom}`
       };
 
-      await api.post('/devis', devisData);
-      toast.success('Devis créé avec succès');
-      navigate('/devis');
+      console.log('📤 Données envoyées:', devisData); // Debug
+
+      const response = await api.post('/devis', devisData);
+      
+      if (response.data.success) {
+        toast.success('Devis créé avec succès');
+        navigate('/devis');
+      }
     } catch (err) {
-      console.error('Erreur création devis:', err);
-      toast.error(err.response?.data?.message || 'Erreur création devis');
+      console.error('❌ Erreur création devis:', err);
+      const errorMessage = err.response?.data?.message || 'Erreur création devis';
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Obtenir le libellé d'une devise
+  const getDeviseLabel = (code) => {
+    const devise = CURRENCIES.find(c => c.code === code);
+    return devise ? `${devise.nom} (${devise.symbole})` : code;
   };
 
   return (
@@ -128,12 +166,18 @@ const DevisForm = () => {
           
           {/* Navigation */}
           <div className="mb-6 flex items-center gap-4 border-b pb-4">
-            <button onClick={() => navigate('/devis')} className="text-gray-600 hover:text-gray-900">
+            <button 
+              onClick={() => navigate('/devis')} 
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
               ← Retour liste
             </button>
-            <span>|</span>
-            <button onClick={() => navigate('/dashboard')} className="text-gray-600 hover:text-gray-900">
-               Dashboard
+            <span className="text-gray-300">|</span>
+            <button 
+              onClick={() => navigate('/dashboard')} 
+              className="text-gray-600 hover:text-gray-900 transition-colors"
+            >
+              🏠 Dashboard
             </button>
           </div>
 
@@ -150,9 +194,9 @@ const DevisForm = () => {
                   placeholder="Rechercher un patient..."
                   value={searchPatient}
                   onChange={(e) => setSearchPatient(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg"
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
-                <img src={IconSearch} alt="" className="w-5 h-5 absolute left-3 top-2.5" />
+                <img src={IconSearch} alt="" className="w-5 h-5 absolute left-3 top-2.5 opacity-50" />
               </div>
 
               <div className="border rounded-lg max-h-60 overflow-y-auto">
@@ -165,7 +209,7 @@ const DevisForm = () => {
                     <div
                       key={p._id}
                       onClick={() => setSelectedPatient(p)}
-                      className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 ${
+                      className={`p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 transition-colors ${
                         selectedPatient?._id === p._id ? 'bg-primary-50 border-l-4 border-l-primary-600' : ''
                       }`}
                     >
@@ -176,8 +220,9 @@ const DevisForm = () => {
               </div>
 
               {selectedPatient && (
-                <div className="mt-4 p-3 bg-green-50 rounded-lg">
-                   Patient sélectionné : {selectedPatient.nom} {selectedPatient.prenom}
+                <div className="mt-4 p-3 bg-green-50 rounded-lg border border-green-200">
+                  <span className="font-medium">Patient sélectionné :</span>{' '}
+                  {selectedPatient.nom} {selectedPatient.prenom}
                 </div>
               )}
             </div>
@@ -189,12 +234,12 @@ const DevisForm = () => {
               <div className="relative mb-4">
                 <input
                   type="text"
-                  placeholder="Rechercher une analyse..."
+                  placeholder="Rechercher une analyse par code ou nom..."
                   value={searchAnalyse}
                   onChange={(e) => setSearchAnalyse(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg"
+                  className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
                 />
-                <img src={IconSearch} alt="" className="w-5 h-5 absolute left-3 top-2.5" />
+                <img src={IconSearch} alt="" className="w-5 h-5 absolute left-3 top-2.5 opacity-50" />
               </div>
 
               <div className="border rounded-lg max-h-60 overflow-y-auto mb-4">
@@ -207,41 +252,51 @@ const DevisForm = () => {
                     <div
                       key={a._id}
                       onClick={() => addAnalyse(a)}
-                      className="p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 flex justify-between items-center"
+                      className="p-3 cursor-pointer hover:bg-gray-50 border-b last:border-b-0 flex justify-between items-center transition-colors"
                     >
                       <div>
                         <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded mr-2">{a.code}</span>
-                        {a.nom?.fr || a.nom}
+                        <span className="text-gray-700">{a.nom?.fr || a.nom}</span>
                       </div>
-                      <div className="text-primary-600 font-medium">{a.prix?.valeur || 0} €</div>
+                      <div className="text-primary-600 font-medium">
+                        {a.prix?.valeur || 0} €
+                      </div>
                     </div>
                   ))}
               </div>
 
-              {/* Panier */}
+              {/* Panier des analyses sélectionnées */}
               {selectedAnalyses.length > 0 && (
-                <div className="border rounded-lg p-4">
-                  <h3 className="font-medium mb-3">Analyses sélectionnées :</h3>
+                <div className="border rounded-lg p-4 bg-gray-50">
+                  <h3 className="font-medium mb-3 flex items-center gap-2">
+                    <span>Analyses sélectionnées</span>
+                    <span className="bg-primary-100 text-primary-700 px-2 py-0.5 rounded-full text-xs">
+                      {selectedAnalyses.length}
+                    </span>
+                  </h3>
+                  
                   {selectedAnalyses.map(a => (
-                    <div key={a._id} className="flex items-center justify-between py-2 border-b last:border-b-0">
+                    <div key={a._id} className="flex items-center justify-between py-2 border-b last:border-b-0 bg-white px-3 rounded mb-1">
                       <div className="flex-1">
                         <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded mr-2">{a.code}</span>
-                        {a.nom?.fr || a.nom}
+                        <span className="text-sm">{a.nom?.fr || a.nom}</span>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <input
                           type="number"
                           min="1"
                           value={a.quantite}
                           onChange={(e) => updateQuantite(a._id, e.target.value)}
-                          className="w-16 px-2 py-1 border rounded text-center"
+                          className="w-16 px-2 py-1 border rounded text-center text-sm"
+                          title="Quantité"
                         />
-                        <span className="w-20 text-right font-medium">
+                        <span className="w-20 text-right font-medium text-sm">
                           {(a.prix?.valeur * a.quantite).toFixed(2)} €
                         </span>
                         <button
                           onClick={() => removeAnalyse(a._id)}
-                          className="p-1 text-red-600 hover:bg-red-50 rounded"
+                          className="p-1 text-red-600 hover:bg-red-50 rounded transition-colors"
+                          title="Retirer"
                         >
                           <img src={IconDelete} alt="" className="w-4 h-4" />
                         </button>
@@ -249,27 +304,55 @@ const DevisForm = () => {
                     </div>
                   ))}
 
-                  {/* Remise */}
+                  {/* Remise globale */}
                   <div className="mt-4 flex items-center justify-end gap-4">
-                    <label className="text-sm">Remise (%) :</label>
+                    <label htmlFor="remise" className="text-sm font-medium">
+                      Remise globale (%)
+                    </label>
                     <input
+                      id="remise"
                       type="number"
                       min="0"
                       max="100"
+                      step="1"
                       value={remise}
                       onChange={(e) => setRemise(parseFloat(e.target.value) || 0)}
-                      className="w-20 px-2 py-1 border rounded text-right"
+                      className="w-20 px-2 py-1 border rounded text-right focus:ring-2 focus:ring-primary-500"
                     />
                   </div>
 
-                  {/* Total */}
-                  <div className="mt-4 pt-4 border-t flex justify-between items-center text-lg font-bold">
-                    <span>TOTAL :</span>
-                    <span className="text-primary-600">{calculTotal()} €</span>
+                  {/* Total général */}
+                  <div className="mt-4 pt-4 border-t flex justify-between items-center">
+                    <span className="text-lg font-semibold">TOTAL</span>
+                    <span className="text-2xl font-bold text-primary-600">
+                      {calculTotal()} {selectedDevise}
+                    </span>
                   </div>
                 </div>
               )}
             </div>
+          </div>
+
+          {/* Sélection de la devise - AJOUTÉ À L'ENDROIT CORRECT */}
+          <div className="mt-6 pt-4 border-t">
+            <label htmlFor="devise" className="block text-sm font-medium mb-2">
+              Devise du devis
+            </label>
+            <select
+              id="devise"
+              value={selectedDevise}
+              onChange={(e) => setSelectedDevise(e.target.value)}
+              className="w-full md:w-64 px-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"
+            >
+              {CURRENCIES.map(devise => (
+                <option key={devise.code} value={devise.code}>
+                  {getDeviseLabel(devise.code)}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-500 mt-1">
+              Le montant total sera affiché dans cette devise
+            </p>
           </div>
 
           {/* Boutons finaux */}
@@ -277,13 +360,15 @@ const DevisForm = () => {
             <button
               onClick={handleSubmit}
               disabled={loading || !selectedPatient || selectedAnalyses.length === 0}
-              className="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+              className="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed font-medium"
             >
-              {loading ? 'Création...' : 'Créer le devis'}
+              {loading ? 'Création en cours...' : 'Créer le devis'}
             </button>
             <button
+              type="button"
               onClick={() => navigate('/devis')}
-              className="flex-1 bg-gray-200 px-6 py-3 rounded-lg hover:bg-gray-300"
+              disabled={loading}
+              className="flex-1 bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors disabled:opacity-50 font-medium"
             >
               Annuler
             </button>
