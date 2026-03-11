@@ -200,6 +200,12 @@ const Dashboard = () => {
           />
         </div>
 
+
+        {/* DEBUG: Vérification visuelle */}
+        <div style={{ background: 'yellow', padding: '10px', margin: '10px 0' }}>
+          DEBUG - Les cartes ci-dessus devraient être visibles
+        </div>
+
         {/* Graphique d'activité (affiché seulement s'il y a des données) */}
         {chartData.labels.length > 0 && (
           <div className="mb-8">
