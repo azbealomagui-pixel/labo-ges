@@ -1,23 +1,23 @@
-# 🏥 LaboGest
+# LaboGest (Nom à changer dans le futur)
 
 Application professionnelle de gestion de laboratoire médical.
 
-## ✨ Fonctionnalités
+## Fonctionnalités
 
-- 🔐 Authentification sécurisée
-- 👥 Gestion des patients
-- 🔬 Catalogue d'analyses
-- 📄 Création de devis
-- 📊 Tableau de bord
-- 🖨️ Génération PDF
+- Authentification sécurisée
+- Gestion des patients
+- Catalogue d'analyses
+- Création de devis
+- Tableau de bord
+- Génération PDF
 
-## 🛠️ Technologies
+## Technologies
 
 - **Backend** : Node.js, Express, MongoDB
 - **Frontend** : React, Tailwind CSS, Vite
 - **Sécurité** : JWT, Bcrypt
 
-## 🚀 Installation
+## Installation
 
 ```bash
 # Backend
@@ -50,7 +50,7 @@ Remplacez `frontend/public/vite.svg` par un vrai logo (plus tard)
 
 ---
 
-## ✅ RÉSUMÉ DES FICHIERS À MODIFIER
+## ÉSUMÉ DES FICHIERS À MODIFIER
 
 | Fichier | Ligne à changer |
 |---------|-----------------|
