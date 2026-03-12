@@ -1,77 +1,37 @@
 // ===========================================
 // UTILITAIRE: pdfGenerator.js
-// RÔLE: Générer des PDF pour devis et factures
+// RÔLE: Générer des PDF professionnels pour devis
+// AVEC: Code QR, multi-devise, infos complètes
 // ===========================================
 
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-
-// ===== FONCTIONS D'EXPORT =====
+import QRCode from 'qrcode';
 
 /**
- * Ouvre le PDF dans un nouvel onglet
+ * Génère un code QR et l'ajoute au PDF
  */
-export const ouvrirPDF = (doc) => {
+const ajouterQRCode = async (doc, texte, x, y) => {
   try {
-    const pdfBlob = doc.output('blob');
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-    window.open(pdfUrl, '_blank');
-    setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
+    const qrDataUrl = await QRCode.toDataURL(texte, {
+      width: 80,
+      margin: 1
+    });
+    doc.addImage(qrDataUrl, 'PNG', x, y, 40, 40);
   } catch (error) {
-    console.error('Erreur ouverture PDF:', error);
-    alert('Impossible d\'ouvrir le PDF');
+    console.error('Erreur génération QR code:', error);
   }
 };
 
 /**
- * Télécharge le PDF
+ * Génère un PDF de devis professionnel
  */
-export const telechargerPDF = (doc, nomFichier = 'document.pdf') => {
-  try {
-    doc.save(nomFichier);
-  } catch (error) {
-    console.error('Erreur téléchargement PDF:', error);
-    alert('Impossible de télécharger le PDF');
-  }
-};
-
-/**
- * Imprime le PDF
- */
-export const imprimerPDF = (doc) => {
-  try {
-    const pdfBlob = doc.output('blob');
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-    const printWindow = window.open(pdfUrl, '_blank');
-    
-    if (printWindow) {
-      setTimeout(() => {
-        printWindow.print();
-      }, 1000);
-    } else {
-      alert('Veuillez autoriser les popups pour imprimer');
-    }
-  } catch (error) {
-    console.error('Erreur impression PDF:', error);
-    alert('Impossible d\'imprimer le PDF');
-  }
-};
-
-// ===== FONCTION PRINCIPALE =====
-
-/**
- * Génère un PDF de devis
- * @param {Object} devis - Les données du devis
- * @param {Object} laboratoire - Infos du laboratoire
- * @returns {Object} L'instance jsPDF pour utilisation ultérieure
- */
-export const genererPDFDevis = (devis, laboratoire) => {
+export const genererPDFDevis = async (devis, laboratoire, utilisateur) => {
   try {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
-    const pageHeight = doc.internal.pageSize.height;
     
-    // ===== EN-TÊTE =====
+    // ===== EN-TÊTE AVEC LOGO =====
     doc.setFontSize(24);
     doc.setTextColor(37, 99, 235);
     doc.text('LABOGEST', 14, 20);
@@ -120,44 +80,31 @@ export const genererPDFDevis = (devis, laboratoire) => {
     // ===== TABLEAU DES ANALYSES =====
     const tableData = (devis.lignes || []).map(ligne => {
       const analyse = ligne.analyseId || {};
-      const prixUnitaire = ligne.prixUnitaire?.valeur || 0;
-      const quantite = ligne.quantite || 1;
-      const total = prixUnitaire * quantite;
-      
       return [
-        analyse.code || '',
-        analyse.nom?.fr || analyse.nom || '',
-        quantite.toString(),
-        `${prixUnitaire.toFixed(2)} €`,
-        `${total.toFixed(2)} €`
+        analyse.code || ligne.code || '',
+        ligne.nom || analyse.nom?.fr || '',
+        analyse.categorie || ligne.categorie || '',
+        ligne.quantite || 1,
+        `${(ligne.prixUnitaire || 0).toFixed(2)} ${ligne.devise || devis.devise || 'EUR'}`,
+        `${(ligne.prixTotal || 0).toFixed(2)} ${ligne.devise || devis.devise || 'EUR'}`
       ];
     });
     
     if (tableData.length === 0) {
-      tableData.push(['-', 'Aucune analyse', '0', '0 €', '0 €']);
+      tableData.push(['-', 'Aucune analyse', '-', '0', '0', '0']);
     }
     
     autoTable(doc, {
       startY: 120,
-      head: [['Code', 'Analyse', 'Qté', 'Prix unitaire', 'Total']],
+      head: [['Code', 'Analyse', 'Catégorie', 'Qté', 'Prix unitaire', 'Total']],
       body: tableData,
       foot: [[
-        '', '', '', 'SOUS-TOTAL',
-        `${(devis.sousTotal?.valeur || 0).toFixed(2)} €`
+        '', '', '', '', 'SOUS-TOTAL',
+        `${(devis.sousTotal?.valeur || 0).toFixed(2)} ${devis.devise || 'EUR'}`
       ]],
       theme: 'striped',
-      headStyles: { 
-        fillColor: [37, 99, 235],
-        textColor: [255, 255, 255],
-        fontSize: 10
-      },
-      footStyles: { 
-        fillColor: [243, 244, 246], 
-        textColor: [0, 0, 0], 
-        fontStyle: 'bold',
-        fontSize: 10
-      },
-      styles: { fontSize: 9 }
+      headStyles: { fillColor: [37, 99, 235], textColor: 255 },
+      footStyles: { fillColor: [243, 244, 246], textColor: [0,0,0], fontStyle: 'bold' }
     });
     
     // ===== TOTAUX =====
@@ -173,31 +120,34 @@ export const genererPDFDevis = (devis, laboratoire) => {
     doc.setTextColor(37, 99, 235);
     doc.setFont(undefined, 'bold');
     const totalValeur = devis.total?.valeur || 0;
-    const totalDevise = devis.total?.devise || '€';
+    const totalDevise = devis.devise || 'EUR';
     doc.text(
       `TOTAL: ${totalValeur.toFixed(2)} ${totalDevise}`,
       pageWidth - 14,
       finalY + 10,
       { align: 'right' }
     );
-    doc.setFont(undefined, 'normal');
+    
+    // ===== CODE QR =====
+    const qrData = `Devis: ${devis.numero}\nPatient: ${patientNom} ${patientPrenom}\nCréé par: ${utilisateur?.prenom || ''} ${utilisateur?.nom || ''}\nLaboratoire: ${laboratoire?.nom || ''}`;
+    await ajouterQRCode(doc, qrData, 14, finalY + 30);
     
     // ===== NOTES =====
     if (devis.notes) {
       doc.setFontSize(9);
       doc.setTextColor(75, 85, 99);
-      doc.text('Notes:', 14, finalY + 30);
-      const splitNotes = doc.splitTextToSize(devis.notes, pageWidth - 40);
-      doc.text(splitNotes, 14, finalY + 38);
+      doc.text('Notes:', 60, finalY + 40);
+      const splitNotes = doc.splitTextToSize(devis.notes, pageWidth - 80);
+      doc.text(splitNotes, 60, finalY + 48);
     }
     
     // ===== PIED DE PAGE =====
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(
-      'Document généré automatiquement par LaboGest',
+      `Document généré par ${utilisateur?.prenom || ''} ${utilisateur?.nom || ''} - ${new Date().toLocaleString()}`,
       pageWidth / 2,
-      pageHeight - 10,
+      280,
       { align: 'center' }
     );
     
@@ -205,7 +155,7 @@ export const genererPDFDevis = (devis, laboratoire) => {
     
   } catch (error) {
     console.error('❌ Erreur génération PDF:', error);
-    alert('Erreur lors de la génération du PDF. Veuillez réessayer.');
+    alert('Erreur lors de la génération du PDF');
     return null;
   }
 };

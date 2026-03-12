@@ -1,6 +1,7 @@
 // ===========================================
 // PAGE: DevisForm
 // RÔLE: Création d'un devis (patient + analyses)
+// VERSION: Finale avec multi-devise corrigée
 // ===========================================
 
 import React, { useState, useEffect } from 'react';
@@ -33,7 +34,7 @@ const DevisForm = () => {
   const [searchPatient, setSearchPatient] = useState('');
   const [searchAnalyse, setSearchAnalyse] = useState('');
   const [remise, setRemise] = useState(0);
-  const [selectedDevise, setSelectedDevise] = useState('EUR'); // État pour la devise
+  const [selectedDevise, setSelectedDevise] = useState('EUR');
 
   // Charger les patients
   useEffect(() => {
@@ -71,7 +72,11 @@ const DevisForm = () => {
         a._id === analyse._id ? { ...a, quantite: a.quantite + 1 } : a
       ));
     } else {
-      setSelectedAnalyses([...selectedAnalyses, { ...analyse, quantite: 1 }]);
+      setSelectedAnalyses([...selectedAnalyses, { 
+        ...analyse, 
+        quantite: 1,
+        devise: analyse.prix?.devise || 'EUR'
+      }]);
     }
   };
 
@@ -100,11 +105,16 @@ const DevisForm = () => {
     return total.toFixed(2);
   };
 
+  // Obtenir le libellé d'une devise
+  const getDeviseLabel = (code) => {
+    const devise = CURRENCIES.find(c => c.code === code);
+    return devise ? `${devise.nom} (${devise.symbole})` : code;
+  };
+
   // Soumettre le formulaire
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Validations
     if (!selectedPatient) {
       toast.error('Veuillez sélectionner un patient');
       return;
@@ -118,25 +128,25 @@ const DevisForm = () => {
     setLoading(true);
 
     try {
-      // Construction des données du devis
       const devisData = {
         patientId: selectedPatient._id,
         laboratoireId: user.laboratoireId,
         createdBy: user._id,
-        devise: selectedDevise, // ← Devise sélectionnée AJOUTÉE ICI
+        devise: selectedDevise,
         lignes: selectedAnalyses.map(a => ({
           analyseId: a._id,
+          code: a.code,
+          nom: a.nom?.fr || a.nom,
+          categorie: a.categorie,
           quantite: a.quantite,
-          prixUnitaire: {
-            valeur: a.prix?.valeur || 0,
-            devise: a.prix?.devise || 'EUR'
-          }
+          prixUnitaire: a.prix?.valeur || 0,
+          devise: a.prix?.devise || 'EUR'
         })),
         remiseGlobale: remise,
         notes: `Devis créé par ${user.prenom} ${user.nom}`
       };
 
-      console.log('📤 Données envoyées:', devisData); // Debug
+      console.log('📤 Données envoyées:', devisData);
 
       const response = await api.post('/devis', devisData);
       
@@ -146,17 +156,10 @@ const DevisForm = () => {
       }
     } catch (err) {
       console.error('❌ Erreur création devis:', err);
-      const errorMessage = err.response?.data?.message || 'Erreur création devis';
-      toast.error(errorMessage);
+      toast.error(err.response?.data?.message || 'Erreur création devis');
     } finally {
       setLoading(false);
     }
-  };
-
-  // Obtenir le libellé d'une devise
-  const getDeviseLabel = (code) => {
-    const devise = CURRENCIES.find(c => c.code === code);
-    return devise ? `${devise.nom} (${devise.symbole})` : code;
   };
 
   return (
@@ -259,7 +262,7 @@ const DevisForm = () => {
                         <span className="text-gray-700">{a.nom?.fr || a.nom}</span>
                       </div>
                       <div className="text-primary-600 font-medium">
-                        {a.prix?.valeur || 0} €
+                        {a.prix?.valeur || 0} {a.prix?.devise || selectedDevise}
                       </div>
                     </div>
                   ))}
@@ -291,7 +294,7 @@ const DevisForm = () => {
                           title="Quantité"
                         />
                         <span className="w-20 text-right font-medium text-sm">
-                          {(a.prix?.valeur * a.quantite).toFixed(2)} €
+                          {(a.prix?.valeur * a.quantite).toFixed(2)} {selectedDevise}
                         </span>
                         <button
                           onClick={() => removeAnalyse(a._id)}
@@ -323,7 +326,7 @@ const DevisForm = () => {
 
                   {/* Total général */}
                   <div className="mt-4 pt-4 border-t flex justify-between items-center">
-                    <span className="text-lg font-semibold">TOTAL</span>
+                    <span className="text-lg font-semibold">TOTAL GÉNÉRAL</span>
                     <span className="text-2xl font-bold text-primary-600">
                       {calculTotal()} {selectedDevise}
                     </span>
@@ -333,7 +336,7 @@ const DevisForm = () => {
             </div>
           </div>
 
-          {/* Sélection de la devise - AJOUTÉ À L'ENDROIT CORRECT */}
+          {/* Sélection de la devise */}
           <div className="mt-6 pt-4 border-t">
             <label htmlFor="devise" className="block text-sm font-medium mb-2">
               Devise du devis
