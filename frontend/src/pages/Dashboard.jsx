@@ -194,7 +194,7 @@ const Dashboard = () => {
           />
           <StatCard
             title="CA du mois"
-            value={`${stats.ca} €`}
+            value={`${stats.ca} ${user?.devise || 'EUR'}`}
             icon={IconFinance}
             bgColor="bg-yellow-100"
           />

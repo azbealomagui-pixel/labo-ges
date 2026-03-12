@@ -72,15 +72,15 @@ const Devis = () => {
   }, [user?.laboratoireId]);
 
   const getStatusBadge = (statut) => {
-    const styles = {
-      brouillon: 'bg-gray-100 text-gray-800',
-      envoye: 'bg-blue-100 text-blue-800',
-      accepte: 'bg-green-100 text-green-800',
-      paye: 'bg-purple-100 text-purple-800',
-      annule: 'bg-red-100 text-red-800'
-    };
-    return styles[statut] || styles.brouillon;
+  const styles = {
+    brouillon: 'bg-blue-100 text-blue-800 border border-blue-200',
+    envoye: 'bg-green-100 text-green-800 border border-green-200',
+    accepte: 'bg-purple-100 text-purple-800 border border-purple-200',
+    paye: 'bg-teal-100 text-teal-800 border border-teal-200',
+    annule: 'bg-red-100 text-red-800 border border-red-200'
   };
+  return styles[statut] || styles.brouillon;
+};
 
   if (loading) {
     return (
