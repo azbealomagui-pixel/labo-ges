@@ -17,6 +17,9 @@ import Analyses from './pages/Analyses';
 import AnalyseForm from './pages/AnalyseForm';
 import Devis from './pages/Devis';
 import DevisForm from './pages/DevisForm';
+import FicheAnalyseForm from './pages/FicheAnalyseForm';
+
+
 
 /**
  * Composant pour les routes protégées
@@ -91,6 +94,13 @@ function App() {
             <AnalyseForm />
           </ProtectedRoute>
         } />
+
+        {/* Fiche d'analyses patient */}
+        <Route path="/fiche-analyses/new" element={
+          <ProtectedRoute>
+            <FicheAnalyseForm />
+          </ProtectedRoute>
+        } />
         
         {/* Devis */}
         <Route path="/devis" element={
@@ -119,6 +129,9 @@ function App() {
             </div>
           </div>
         } />
+
+
+        
       </Routes>
 
       {/* ===== FOOTER PROFESSIONNEL ===== */}
