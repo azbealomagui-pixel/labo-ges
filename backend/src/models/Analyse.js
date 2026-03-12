@@ -1,117 +1,52 @@
-// ===========================================
-// MODÈLE: Analyse
-// RÔLE: Définir la structure d'une analyse médicale
-// ===========================================
-
 const mongoose = require('mongoose');
 
 const analyseSchema = new mongoose.Schema({
-  // ===== IDENTIFIANTS =====
   code: {
     type: String,
-    required: [true, 'Le code analyse est obligatoire'],
+    required: [true, 'Le code est obligatoire'],
     unique: true,
     uppercase: true,
-    trim: true,
-    maxlength: [20, 'Le code ne peut pas dépasser 20 caractères']
+    trim: true
   },
-
-  // ===== NOM MULTILINGUE =====
   nom: {
-    fr: { type: String, default: '' },
+    fr: { type: String, required: [true, 'Le nom est obligatoire'] },
     en: { type: String, default: '' },
     es: { type: String, default: '' }
   },
-
-  // ===== CATÉGORIE =====
   categorie: {
     type: String,
     required: [true, 'La catégorie est obligatoire'],
-    enum: [
-      'Hématologie',
-      'Biochimie',
-      'Hormonologie',
-      'Sérologie',
-      'Bactériologie',
-      'Parasitologie',
-      'Virologie',
-      'Immunologie',
-      'Autre'
-    ],
-    default: 'Biochimie'
+    enum: ['Hématologie', 'Biochimie', 'Hormonologie', 'Sérologie', 
+           'Bactériologie', 'Parasitologie', 'Virologie', 'Immunologie', 'Autre']
   },
-
-  // ===== PRIX =====
   prix: {
-    valeur: {
-      type: Number,
-      required: [true, 'Le prix est obligatoire'],
-      min: [0, 'Le prix ne peut pas être négatif']
-    },
-    devise: {
-      type: String,
-      default: 'EUR',
-      enum: ['EUR', 'USD', 'XOF']
-    }
+    valeur: { type: Number, required: true, min: 0 },
+    devise: { type: String, default: 'EUR', enum: ['EUR', 'USD', 'GNF', 'XOF'] }
   },
-
-  // ===== UNITÉ DE MESURE =====
-  uniteMesure: {
-    type: String,
-    default: '-',
-    trim: true
-  },
-
-  // ===== TYPE D'ÉCHANTILLON =====
   typeEchantillon: {
     type: String,
-    required: [true, "Le type d'échantillon est obligatoire"],
-    enum: ['Sang', 'Urine', 'Selles', 'LCR', 'Prélèvement', 'Autre'],
-    default: 'Sang'
+    required: true,
+    enum: ['Sang', 'Urine', 'Selles', 'LCR', 'Prélèvement', 'Autre']
   },
-
-  // ===== DÉLAI DE RENDU =====
-  delaiRendu: {
-    type: Number,
-    default: 24,
-    min: [1, 'Le délai minimum est de 1 heure'],
-    max: [720, 'Le délai maximum est de 30 jours']
+  instructions: { type: String, default: '' },
+  normes: {
+    homme: { min: Number, max: Number, texte: String },
+    femme: { min: Number, max: Number, texte: String },
+    enfant: { min: Number, max: Number, texte: String }
   },
-
-  // ===== INSTRUCTIONS =====
-  instructions: {
-    type: String,
-    default: '',
-    maxlength: [500, 'Les instructions ne peuvent pas dépasser 500 caractères']
+  delaiRendu: { type: Number, default: 24 },
+  uniteMesure: { type: String, default: '-' },
+  laboratoireId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Laboratoire', 
+    required: true 
   },
-
-  // ===== LIENS =====
-  laboratoireId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Laboratoire',
-    required: true
+  createdBy: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'User', 
+    required: true 
   },
-  
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-
-  // ===== STATUT =====
-  actif: {
-    type: Boolean,
-    default: true
-  }
-
-}, {
-  timestamps: true
-});
-
-// ===== INDEX POUR OPTIMISER LES RECHERCHES =====
-analyseSchema.index({ code: 1 });
-analyseSchema.index({ laboratoireId: 1 });
-analyseSchema.index({ categorie: 1 });
-analyseSchema.index({ 'nom.fr': 'text' });
+  actif: { type: Boolean, default: true }
+}, { timestamps: true });
 
 module.exports = mongoose.model('Analyse', analyseSchema);
