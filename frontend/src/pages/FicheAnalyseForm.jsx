@@ -28,9 +28,14 @@ const FicheAnalyseForm = () => {
   const [patients, setPatients] = useState([]);
   const [analyses, setAnalyses] = useState([]);
   const [selectedPatient, setSelectedPatient] = useState(null);
-  const [selectedAnalyses, setSelectedAnalyses] = useState([]);
+  const [selectedAnalyses, setSelectedAnalyses] = useState([]); // Liste en cours
+  
+  // État pour la saisie en cours
+  const [currentCode, setCurrentCode] = useState('');
+  const [currentAnalyse, setCurrentAnalyse] = useState(null);
+  const [currentQuantite, setCurrentQuantite] = useState(1);
+  
   const [searchPatient, setSearchPatient] = useState('');
-  const [searchAnalyse, setSearchAnalyse] = useState('');
   const [devise, setDevise] = useState('EUR');
   const [notes, setNotes] = useState('');
 
@@ -62,65 +67,62 @@ const FicheAnalyseForm = () => {
     fetchAnalyses();
   }, [user.laboratoireId]);
 
- // ===== GESTION DE LA RECHERCHE D'ANALYSES =====
-// Rechercher et ajouter automatiquement une analyse par code
-const handleCodeSearch = (code) => {
-  const analyse = analyses.find(a => 
-    a.code.toLowerCase() === code.toLowerCase()
-  );
-  
-  if (analyse) {
-    addAnalyse(analyse);
-    setSearchAnalyse('');
-    toast.success(`Analyse ${analyse.code} ajoutée`);
-  } else {
-    toast.info('Aucune analyse trouvée avec ce code');
-  }
-};
+  // Rechercher une analyse par code
+  const handleCodeSearch = (code) => {
+    if (!code.trim()) {
+      setCurrentAnalyse(null);
+      return;
+    }
 
-// Gestionnaire de touche Entrée
-const handleSearchKeyPress = (e) => {
-  if (e.key === 'Enter' && searchAnalyse.trim()) {
-    handleCodeSearch(searchAnalyse);
-  }
-};
-
-  // Ajouter une analyse à la liste
-  const addAnalyse = (analyse) => {
-    const existe = selectedAnalyses.find(a => a.analyseId === analyse._id);
+    const analyse = analyses.find(a => 
+      a.code.toLowerCase() === code.toLowerCase()
+    );
     
-    if (existe) {
-      // Si déjà présente, augmenter la quantité
-      setSelectedAnalyses(selectedAnalyses.map(a =>
-        a.analyseId === analyse._id 
-          ? { ...a, quantite: a.quantite + 1, prixTotal: (a.quantite + 1) * a.prixUnitaire }
-          : a
-      ));
-    } else {
-      // Nouvelle analyse
-      const nouvelle = {
-        analyseId: analyse._id,
+    if (analyse) {
+      setCurrentAnalyse({
+        id: analyse._id,
         code: analyse.code,
         nom: analyse.nom?.fr || analyse.nom,
+        categorie: analyse.categorie,
         prixUnitaire: analyse.prix?.valeur || 0,
-        devise: analyse.prix?.devise || 'EUR',
-        quantite: 1,
-        prixTotal: analyse.prix?.valeur || 0
-      };
-      setSelectedAnalyses([...selectedAnalyses, nouvelle]);
+        devise: analyse.prix?.devise || 'EUR'
+      });
+      toast.success(`Analyse trouvée : ${analyse.nom?.fr || analyse.nom}`);
+    } else {
+      setCurrentAnalyse(null);
+      toast.info('Aucune analyse trouvée avec ce code');
     }
   };
 
-  // Mettre à jour la quantité
-  const updateQuantite = (index, nouvelleQuantite) => {
-    const quantite = parseInt(nouvelleQuantite) || 1;
-    const analysesMAJ = [...selectedAnalyses];
-    analysesMAJ[index].quantite = quantite;
-    analysesMAJ[index].prixTotal = quantite * analysesMAJ[index].prixUnitaire;
-    setSelectedAnalyses(analysesMAJ);
+  // Ajouter l'analyse courante à la liste
+  const addCurrentToFiche = () => {
+    if (!currentAnalyse) {
+      toast.error('Veuillez d\'abord rechercher une analyse valide');
+      return;
+    }
+
+    const nouvelleLigne = {
+      analyseId: currentAnalyse.id,
+      code: currentAnalyse.code,
+      nom: currentAnalyse.nom,
+      categorie: currentAnalyse.categorie,
+      prixUnitaire: currentAnalyse.prixUnitaire,
+      devise: currentAnalyse.devise,
+      quantite: currentQuantite,
+      prixTotal: currentAnalyse.prixUnitaire * currentQuantite
+    };
+
+    setSelectedAnalyses([...selectedAnalyses, nouvelleLigne]);
+    
+    // Réinitialiser le formulaire de saisie
+    setCurrentCode('');
+    setCurrentAnalyse(null);
+    setCurrentQuantite(1);
+    
+    toast.success('Analyse ajoutée à la liste');
   };
 
-  // Supprimer une analyse
+  // Supprimer une analyse de la liste
   const removeAnalyse = (index) => {
     setSelectedAnalyses(selectedAnalyses.filter((_, i) => i !== index));
   };
@@ -157,6 +159,7 @@ const handleSearchKeyPress = (e) => {
           analyseId: a.analyseId,
           code: a.code,
           nom: a.nom,
+          categorie: a.categorie,
           prixUnitaire: a.prixUnitaire,
           devise: a.devise,
           quantite: a.quantite,
@@ -246,57 +249,93 @@ const handleSearchKeyPress = (e) => {
               )}
             </div>
 
-            {/* Sélection analyses */}
+            {/* Saisie d'une analyse */}
             <div className="mb-8">
-              <h2 className="text-lg font-semibold mb-4">2. Analyses</h2>
+              <h2 className="text-lg font-semibold mb-4">2. Ajouter une analyse</h2>
               
-              <div className="relative mb-4">
-                <input
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">Code analyse</label>
+                  <input
                     type="text"
-                    placeholder="Rechercher par code (appuyez sur Entrée)..."
-                    value={searchAnalyse}
-                    onChange={(e) => setSearchAnalyse(e.target.value)}
-                    onKeyPress={handleSearchKeyPress}
-                    className="w-full pl-10 pr-4 py-2 border rounded-lg focus:ring-2 focus:ring-primary-500"/>
-                    <img src={IconSearch} alt="" className="w-5 h-5 absolute left-3 top-2.5 opacity-50" />
+                    value={currentCode}
+                    onChange={(e) => setCurrentCode(e.target.value)}
+                    onBlur={() => handleCodeSearch(currentCode)}
+                    className="w-full px-4 py-2 border rounded-lg"
+                    placeholder="Ex: GLY002"
+                  />
                 </div>
-
-              <div className="border rounded-lg max-h-60 overflow-y-auto mb-4">
-                {analyses
-                  .filter(a => 
-                    a.code.toLowerCase().includes(searchAnalyse.toLowerCase()) ||
-                    a.nom?.fr?.toLowerCase().includes(searchAnalyse.toLowerCase())
-                  )
-                  .map(a => (
-                    <div
-                      key={a._id}
-                      onClick={() => addAnalyse(a)}
-                      className="p-3 cursor-pointer hover:bg-gray-50 border-b flex justify-between items-center"
-                    >
-                      <div>
-                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded mr-2">
-                          {a.code}
-                        </span>
-                        {a.nom?.fr || a.nom}
-                      </div>
-                      <div className="text-primary-600 font-medium">
-                        {a.prix?.valeur} €
-                      </div>
+                
+                {currentAnalyse && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Catégorie</label>
+                      <input
+                        type="text"
+                        value={currentAnalyse.categorie}
+                        readOnly
+                        className="w-full px-4 py-2 border rounded-lg bg-gray-50"
+                      />
                     </div>
-                  ))}
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Nom</label>
+                      <input
+                        type="text"
+                        value={currentAnalyse.nom}
+                        readOnly
+                        className="w-full px-4 py-2 border rounded-lg bg-gray-50"
+                      />
+                    </div>
+                  </>
+                )}
               </div>
+
+              {currentAnalyse && (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Prix unitaire</label>
+                    <input
+                      type="number"
+                      value={currentAnalyse.prixUnitaire}
+                      readOnly
+                      className="w-full px-4 py-2 border rounded-lg bg-gray-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium mb-2">Quantité</label>
+                    <input
+                      type="number"
+                      min="1"
+                      value={currentQuantite}
+                      onChange={(e) => setCurrentQuantite(parseInt(e.target.value) || 1)}
+                      className="w-full px-4 py-2 border rounded-lg"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <button
+                      type="button"
+                      onClick={addCurrentToFiche}
+                      className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 flex items-center gap-2"
+                    >
+                      <img src={IconAdd} alt="" className="w-5 h-5" />
+                      Ajouter à la liste
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Liste des analyses sélectionnées */}
             {selectedAnalyses.length > 0 && (
               <div className="mb-8">
-                <h2 className="text-lg font-semibold mb-4">3. Récapitulatif</h2>
+                <h2 className="text-lg font-semibold mb-4">3. Analyses sélectionnées</h2>
                 <div className="border rounded-lg overflow-hidden">
                   <table className="min-w-full">
                     <thead className="bg-gray-50">
                       <tr>
                         <th className="px-4 py-2 text-left">Code</th>
                         <th className="px-4 py-2 text-left">Analyse</th>
+                        <th className="px-4 py-2 text-left">Catégorie</th>
                         <th className="px-4 py-2 text-right">Prix unitaire</th>
                         <th className="px-4 py-2 text-center">Quantité</th>
                         <th className="px-4 py-2 text-right">Total</th>
@@ -308,19 +347,10 @@ const handleSearchKeyPress = (e) => {
                         <tr key={index} className="border-t">
                           <td className="px-4 py-2 font-mono text-sm">{a.code}</td>
                           <td className="px-4 py-2">{a.nom}</td>
-                          <td className="px-4 py-2 text-right">{a.prixUnitaire} €</td>
-                          <td className="px-4 py-2 text-center">
-                            <input
-                              type="number"
-                              min="1"
-                              value={a.quantite}
-                              onChange={(e) => updateQuantite(index, e.target.value)}
-                              className="w-16 px-2 py-1 border rounded text-center"
-                            />
-                          </td>
-                          <td className="px-4 py-2 text-right font-medium">
-                            {a.prixTotal} €
-                          </td>
+                          <td className="px-4 py-2">{a.categorie}</td>
+                          <td className="px-4 py-2 text-right">{a.prixUnitaire} {a.devise}</td>
+                          <td className="px-4 py-2 text-center">{a.quantite}</td>
+                          <td className="px-4 py-2 text-right font-medium">{a.prixTotal} {a.devise}</td>
                           <td className="px-4 py-2 text-center">
                             <button
                               onClick={() => removeAnalyse(index)}
@@ -334,11 +364,11 @@ const handleSearchKeyPress = (e) => {
                     </tbody>
                     <tfoot className="bg-gray-50">
                       <tr>
-                        <td colSpan="4" className="px-4 py-3 text-right font-bold">
+                        <td colSpan="5" className="px-4 py-3 text-right font-bold">
                           TOTAL GÉNÉRAL
                         </td>
                         <td className="px-4 py-3 text-right font-bold text-primary-600">
-                          {calculerTotalGeneral()} €
+                          {calculerTotalGeneral()} {devise}
                         </td>
                         <td></td>
                       </tr>
