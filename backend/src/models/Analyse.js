@@ -9,7 +9,7 @@ const analyseSchema = new mongoose.Schema({
     trim: true
   },
   nom: {
-    fr: { type: String, required: [true, 'Le nom est obligatoire'] },
+    fr: { type: String, required: [true, 'Le nom est un champ obligatoire'] },
     en: { type: String, default: '' },
     es: { type: String, default: '' }
   },
