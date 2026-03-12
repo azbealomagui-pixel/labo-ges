@@ -1,42 +1,18 @@
 // ===========================================
 // MODÈLE: Devis.js
 // RÔLE: Modèle pour les devis
-// VERSION: Corrigée (middleware pre('save') réparé)
 // ===========================================
 
 const mongoose = require('mongoose');
 
 const devisSchema = new mongoose.Schema({
-  numero: {
-    type: String,
-    required: true,
-    unique: true
-  },
-  type: {
-    type: String,
-    enum: ['proforma', 'devis', 'facture', 'avoir'],
-    default: 'devis'
-  },
-  laboratoireId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Laboratoire',
-    required: true
-  },
-  patientId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Patient',
-    required: true
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  devise: {
-    type: String,
-    default: 'EUR',
-    enum: ['EUR', 'USD', 'GNF', 'XOF', 'GBP', 'MAD', 'DZD', 'TND']
-  },
+  numero: { type: String, required: true, unique: true },
+  type: { type: String, enum: ['proforma', 'devis', 'facture', 'avoir'], default: 'devis' },
+  laboratoireId: { type: mongoose.Schema.Types.ObjectId, ref: 'Laboratoire', required: true },
+  patientId: { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  devise: { type: String, default: 'EUR', enum: ['EUR', 'USD', 'GNF', 'XOF'] },
+  
   lignes: [{
     analyseId: { type: mongoose.Schema.Types.ObjectId, ref: 'Analyse' },
     code: String,
@@ -48,34 +24,14 @@ const devisSchema = new mongoose.Schema({
     prixTotal: Number,
     observations: String
   }],
-  sousTotal: {
-    valeur: { type: Number, default: 0 },
-    devise: { type: String, default: 'EUR' }
-  },
-  total: {
-    valeur: { type: Number, default: 0 },
-    devise: { type: String, default: 'EUR' }
-  },
-  remiseGlobale: {
-    type: Number,
-    default: 0,
-    min: 0,
-    max: 100
-  },
-  dateEmission: {
-    type: Date,
-    default: Date.now
-  },
-  dateValidite: {
-    type: Date,
-    default: () => new Date(+new Date() + 30*24*60*60*1000)
-  },
+  
+  sousTotal: { valeur: { type: Number, default: 0 }, devise: { type: String, default: 'EUR' } },
+  total: { valeur: { type: Number, default: 0 }, devise: { type: String, default: 'EUR' } },
+  remiseGlobale: { type: Number, default: 0, min: 0, max: 100 },
+  dateEmission: { type: Date, default: Date.now },
+  dateValidite: { type: Date, default: () => new Date(+new Date() + 30*24*60*60*1000) },
   datePaiement: Date,
-  statut: {
-    type: String,
-    enum: ['brouillon', 'envoye', 'accepte', 'refuse', 'paye', 'annule', 'expire'],
-    default: 'brouillon'
-  },
+  statut: { type: String, enum: ['brouillon', 'envoye', 'accepte', 'refuse', 'paye', 'annule', 'expire'], default: 'brouillon' },
   notes: String,
   historique: [{
     action: String,
@@ -88,24 +44,32 @@ const devisSchema = new mongoose.Schema({
 
 // ===== MIDDLEWARE PRE-SAVE CORRIGÉ =====
 devisSchema.pre('save', function(next) {
+  // Vérifier que la fonction next existe
+  if (typeof next !== 'function') {
+    console.error('❌ next n\'est pas une fonction');
+    return;
+  }
+
   try {
-    // Vérifier qu'il y a des lignes
+    // Si pas de lignes, on sort
     if (!this.lignes || this.lignes.length === 0) {
       return next();
     }
 
-    // Calculer le sous-total
+    // Calcul du sous-total
     let sousTotalCalc = 0;
     this.lignes.forEach(ligne => {
-      // S'assurer que prixTotal est calculé
-      if (!ligne.prixTotal) {
-        ligne.prixTotal = (ligne.prixUnitaire || 0) * (ligne.quantite || 1);
-      }
-      sousTotalCalc += ligne.prixTotal;
+      const prixU = ligne.prixUnitaire || 0;
+      const qte = ligne.quantite || 1;
+      const totalLigne = prixU * qte;
+      
+      ligne.prixTotal = totalLigne;
+      sousTotalCalc += totalLigne;
     });
 
     // Appliquer la remise
-    const totalCalc = sousTotalCalc * (1 - (this.remiseGlobale || 0) / 100);
+    const remise = this.remiseGlobale || 0;
+    const totalCalc = sousTotalCalc * (1 - remise / 100);
 
     // Mettre à jour les champs
     this.sousTotal = {
@@ -118,19 +82,12 @@ devisSchema.pre('save', function(next) {
       devise: this.devise || 'EUR'
     };
 
-    // Appeler next pour continuer
-    next();
+    return next();
+    
   } catch (error) {
-    // En cas d'erreur, passer l'erreur à next
-    next(error);
+    console.error('❌ Erreur dans pre-save:', error);
+    return next(error);
   }
 });
-
-// Index pour optimiser les recherches
-devisSchema.index({ numero: 1 });
-devisSchema.index({ laboratoireId: 1 });
-devisSchema.index({ patientId: 1 });
-devisSchema.index({ statut: 1 });
-devisSchema.index({ dateEmission: -1 });
 
 module.exports = mongoose.model('Devis', devisSchema);
