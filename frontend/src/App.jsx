@@ -107,6 +107,14 @@ function App() {
             <Devis />
           </ProtectedRoute>
         } />
+        {/* NOUVELLE ROUTE POUR MODIFIER UN DEVIS */}
+        <Route path="/devis/:id" element={
+          <ProtectedRoute>
+            <DevisForm />
+          </ProtectedRoute>
+        } />
+
+
         <Route path="/devis/new" element={
           <ProtectedRoute>
             <DevisForm />
