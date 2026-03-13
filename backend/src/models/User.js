@@ -1,7 +1,7 @@
 // ===========================================
 // FICHIER: src/models/User.js
 // RÔLE: Modèle Mongoose pour les utilisateurs
-// VERSION: Finale avec bcrypt et sécurité
+// VERSION: Finale avec bcrypt, sécurité et multi-espaces
 // ===========================================
 
 const mongoose = require('mongoose');
@@ -12,7 +12,7 @@ const bcrypt = require('bcrypt');
  * Définit la structure d'un utilisateur dans MongoDB
  */
 const userSchema = new mongoose.Schema({
-  // Informations personnelles
+  // ===== INFORMATIONS PERSONNELLES =====
   nom: {
     type: String,
     required: [true, 'Le nom est obligatoire'],
@@ -37,14 +37,14 @@ const userSchema = new mongoose.Schema({
     ]
   },
   
-  // Mot de passe (sera haché automatiquement)
+  // ===== MOT DE PASSE =====
   password: {
     type: String,
     required: [true, 'Le mot de passe est obligatoire'],
     minlength: [6, 'Le mot de passe doit contenir au moins 6 caractères']
   },
 
-  // Rôle et permissions
+  // ===== RÔLE ET PERMISSIONS =====
   role: {
     type: String,
     enum: {
@@ -63,7 +63,26 @@ const userSchema = new mongoose.Schema({
     default: 'technicien'
   },
 
-  // Laboratoire de rattachement
+  // ===== NOUVEAUX CHAMPS POUR MULTI-ESPACES =====
+  espaceId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Espace',
+    required: function() {
+      return this.role !== 'super_admin';
+    }
+  },
+
+  estProprietaire: {
+    type: Boolean,
+    default: false
+  },
+
+  poste: {
+    type: String,
+    default: ''
+  },
+
+  // ===== LABORATOIRE DE RATTACHEMENT (ANCIEN) =====
   laboratoireId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Laboratoire',
@@ -73,7 +92,7 @@ const userSchema = new mongoose.Schema({
     }
   },
 
-  // Statut du compte
+  // ===== STATUT DU COMPTE =====
   actif: {
     type: Boolean,
     default: true

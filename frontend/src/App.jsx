@@ -18,6 +18,7 @@ import AnalyseForm from './pages/AnalyseForm';
 import Devis from './pages/Devis';
 import DevisForm from './pages/DevisForm';
 import FicheAnalyseForm from './pages/FicheAnalyseForm';
+import CreerEspace from './pages/CreerEspace';
 
 
 
@@ -134,6 +135,13 @@ function App() {
               </a>
             </div>
           </div>
+        } />
+
+        // Dans les routes protégées, après les autres routes
+        <Route path="/creer-espace" element={
+          <ProtectedRoute>
+            <CreerEspace />
+          </ProtectedRoute>
         } />
 
 

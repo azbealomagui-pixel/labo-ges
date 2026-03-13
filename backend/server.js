@@ -44,7 +44,7 @@ const analyseRoutes = require('./src/routes/analyseRoutes');
 const devisRoutes = require('./src/routes/devisRoutes');
 const statsRoutes = require('./src/routes/statsRoutes');
 const ficheAnalyseRoutes = require('./src/routes/ficheAnalyseRoutes');
-
+const espaceRoutes = require('./src/routes/espaceRoutes');
 
 
 
@@ -58,6 +58,7 @@ app.use('/api/analyses', analyseRoutes);
 app.use('/api/devis', devisRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/fiches-analyses', ficheAnalyseRoutes);
+app.use('/api/espaces', espaceRoutes);
 
 
 
