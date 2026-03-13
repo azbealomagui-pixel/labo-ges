@@ -44,8 +44,7 @@ function App() {
         pauseOnFocusLoss
         draggable
         pauseOnHover
-        theme="colored"
-      />
+        theme="colored"/>
       
       <Routes>
         {/* ===== ROUTES PUBLIQUES ===== */}
@@ -122,8 +121,7 @@ function App() {
               <p className="text-gray-600 mb-6">Page non trouvée</p>
               <a 
                 href="/dashboard" 
-                className="inline-block bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors"
-              >
+                className="inline-block bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors">
                 Retour au tableau de bord
               </a>
             </div>
