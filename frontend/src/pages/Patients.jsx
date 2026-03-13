@@ -9,6 +9,9 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
+// ===== IMPORTS AJOUTÉS =====
+import { genererPDFPatient } from '../utils/pdfGenerator';
+import { exportToExcel } from '../utils/excelGenerator';
 
 // Import des icônes personnalisées
 import { IconSearch, IconAdd, IconEdit, IconDelete } from '../assets';
@@ -82,6 +85,25 @@ const Patients = () => {
     return () => clearTimeout(timer);
   }, [searchTerm, patients]);
 
+
+  const [laboratoire, setLaboratoire] = useState(null);
+
+  // ===== CHARGEMENT DES INFOS LABORATOIRE =====
+  useEffect(() => {
+    const fetchLabo = async () => {
+      try {
+        const response = await api.get(`/laboratoires/${user.laboratoireId}`);
+        setLaboratoire(response.data.laboratoire);
+      } catch (err) {
+        console.error('❌ Erreur chargement labo:', err);
+      }
+    };
+    if (user?.laboratoireId) {
+      fetchLabo();
+    }
+  }, [user?.laboratoireId]);
+
+
   /**
    * Suppression (désactivation) d'un patient
    */
@@ -146,8 +168,7 @@ const Patients = () => {
           
           <button
             onClick={() => navigate('/patients/new')}
-            className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors shadow-lg hover:shadow-xl"
-          >
+            className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors shadow-lg hover:shadow-xl">
             <img src={IconAdd} alt="Ajouter" className="w-5 h-5" />
             Nouveau patient
           </button>
@@ -270,24 +291,102 @@ const Patients = () => {
                       </td>
                       
                       {/* Colonne Actions */}
-                      <td className="px-6 py-4">
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => navigate(`/patients/${patient._id}`)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
-                            title="Modifier le patient"
-                          >
-                            <img src={IconEdit} alt="Modifier" className="w-5 h-5" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(patient._id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                            title="Supprimer le patient"
-                          >
-                            <img src={IconDelete} alt="Supprimer" className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </td>
+                    <td className="px-6 py-4">
+                      <div className="flex gap-2">
+                        {/* Bouton Modifier (existant) */}
+                        <button
+                          onClick={() => navigate(`/patients/${patient._id}`)}
+                          className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Modifier le patient"
+                        >
+                          <img src={IconEdit} alt="Modifier" className="w-5 h-5" />
+                        </button>
+
+                        {/* ===== BOUTON PDF (Ouvrir) ===== */}
+                        <button
+                          onClick={async () => {
+                            try {
+                              const doc = await genererPDFPatient(patient, laboratoire);
+                              if (doc) {
+                                const pdfBlob = doc.output('blob');
+                                const url = URL.createObjectURL(pdfBlob);
+                                window.open(url, '_blank');
+                                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                              }
+                            } catch (err) {
+                              console.error('❌ Erreur PDF:', err);
+                              toast.error('Erreur génération PDF');
+                            }
+                          }}
+                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                          title="Ouvrir le PDF"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+
+                        {/* ===== BOUTON PDF (Télécharger) ===== */}
+                        <button
+                          onClick={async () => {
+                            try {
+                              const doc = await genererPDFPatient(patient, laboratoire);
+                              if (doc) {
+                                doc.save(`patient-${patient.nom}-${patient.prenom}.pdf`);
+                              }
+                            } catch (err) {
+                              console.error('❌ Erreur PDF:', err);
+                              toast.error('Erreur téléchargement PDF');
+                            }
+                          }}
+                          className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          title="Télécharger le PDF"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </button>
+
+                        {/* ===== BOUTON EXCEL ===== */}
+                        <button
+                          onClick={() => {
+                            try {
+                              exportToExcel([patient], `patient-${patient.nom}-${patient.prenom}`, {
+                                nom: 'Nom',
+                                prenom: 'Prénom',
+                                email: 'Email',
+                                telephone: 'Téléphone',
+                                adresse: 'Adresse',
+                                dateNaissance: 'Date naissance',
+                                sexe: 'Sexe',
+                                groupeSanguin: 'Groupe sanguin',
+                                numeroSecuriteSociale: 'N° Sécurité Sociale',
+                                observations: 'Observations'
+                              });
+                              toast.success('✅ Fichier Excel généré');
+                            } catch (err) {
+                              console.error('❌ Erreur Excel:', err);
+                              toast.error('Erreur génération Excel');
+                            }
+                          }}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Télécharger Excel"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </button>
+
+                        {/* Bouton Supprimer (existant) */}
+                        <button
+                          onClick={() => handleDelete(patient._id)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Supprimer le patient"
+                        >
+                          <img src={IconDelete} alt="Supprimer" className="w-5 h-5" />
+                        </button>
+                      </div>
+                    </td>
                     </tr>
                   ))}
                 </tbody>

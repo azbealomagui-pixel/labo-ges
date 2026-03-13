@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: Analyses
 // RÔLE: Liste du catalogue d'analyses
-// AVEC: Recherche instantanée (dès 2 caractères)
+// AVEC: Recherche instantanée + PDF + Excel
 // ===========================================
 
 import React, { useEffect, useState } from 'react';
@@ -10,6 +10,9 @@ import { toast } from 'react-toastify';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
 import { IconAdd, IconEdit, IconDelete, IconSearch } from '../assets';
+// ===== IMPORTS POUR PDF ET EXCEL =====
+import { genererPDFAnalyse } from '../utils/pdfGenerator';
+import { exportToExcel } from '../utils/excelGenerator';
 
 const Analyses = () => {
   const navigate = useNavigate();
@@ -18,6 +21,8 @@ const Analyses = () => {
   const [filteredAnalyses, setFilteredAnalyses] = useState([]); // Liste filtrée
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  // ===== ÉTAT POUR LES INFOS LABORATOIRE =====
+  const [laboratoire, setLaboratoire] = useState(null);
 
   // ===== CHARGEMENT DES ANALYSES =====
   useEffect(() => {
@@ -26,7 +31,7 @@ const Analyses = () => {
         const response = await api.get(`/analyses/labo/${user.laboratoireId}`);
         const data = response.data.analyses || [];
         setAnalyses(data);
-        setFilteredAnalyses(data); // Initialiser la liste filtrée
+        setFilteredAnalyses(data);
       } catch (err) {
         console.error('❌ Erreur chargement:', err);
         toast.error('Erreur chargement catalogue');
@@ -38,11 +43,26 @@ const Analyses = () => {
     fetchAnalyses();
   }, [user.laboratoireId]);
 
+  // ===== CHARGEMENT DES INFOS LABORATOIRE =====
+  useEffect(() => {
+    const fetchLabo = async () => {
+      try {
+        const response = await api.get(`/laboratoires/${user.laboratoireId}`);
+        setLaboratoire(response.data.laboratoire);
+      } catch (err) {
+        console.error('❌ Erreur chargement labo:', err);
+      }
+    };
+    
+    if (user?.laboratoireId) {
+      fetchLabo();
+    }
+  }, [user?.laboratoireId]);
+
   // ===== RECHERCHE INSTANTANÉE =====
   useEffect(() => {
     const timer = setTimeout(() => {
       if (searchTerm.length >= 2) {
-        // Filtrer en temps réel
         const filtered = analyses.filter(a => 
           a.code.toLowerCase().includes(searchTerm.toLowerCase()) ||
           a.nom?.fr?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -50,10 +70,9 @@ const Analyses = () => {
         );
         setFilteredAnalyses(filtered);
       } else {
-        // Moins de 2 caractères → afficher tout
         setFilteredAnalyses(analyses);
       }
-    }, 300); // Délai de 300ms pour éviter les calculs trop fréquents
+    }, 300);
 
     return () => clearTimeout(timer);
   }, [searchTerm, analyses]);
@@ -65,7 +84,6 @@ const Analyses = () => {
       await api.delete(`/analyses/${id}`);
       toast.success('✅ Analyse supprimée');
       
-      // Mettre à jour les listes
       const updatedAnalyses = analyses.filter(a => a._id !== id);
       setAnalyses(updatedAnalyses);
       setFilteredAnalyses(updatedAnalyses.filter(a => 
@@ -189,6 +207,7 @@ const Analyses = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex justify-center gap-2">
+                        {/* Bouton Modifier */}
                         <button
                           onClick={() => navigate(`/analyses/${a._id}`)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -196,6 +215,81 @@ const Analyses = () => {
                         >
                           <img src={IconEdit} alt="Modifier" className="w-5 h-5" />
                         </button>
+
+                        {/* ===== BOUTON PDF OUVRIR ===== */}
+                        <button
+                          onClick={async () => {
+                            try {
+                              const doc = await genererPDFAnalyse(a, laboratoire);
+                              if (doc) {
+                                const pdfBlob = doc.output('blob');
+                                const url = URL.createObjectURL(pdfBlob);
+                                window.open(url, '_blank');
+                                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                              }
+                            } catch (err) {
+                              console.error('❌ Erreur PDF:', err);
+                              toast.error('Erreur génération PDF');
+                            }
+                          }}
+                          className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                          title="Ouvrir le PDF"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                          </svg>
+                        </button>
+
+                        {/* ===== BOUTON PDF TÉLÉCHARGER ===== */}
+                        <button
+                          onClick={async () => {
+                            try {
+                              const doc = await genererPDFAnalyse(a, laboratoire);
+                              if (doc) {
+                                doc.save(`analyse-${a.code}.pdf`);
+                              }
+                            } catch (err) {
+                              console.error('❌ Erreur PDF:', err);
+                              toast.error('Erreur téléchargement PDF');
+                            }
+                          }}
+                          className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                          title="Télécharger le PDF"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                          </svg>
+                        </button>
+
+                        {/* ===== BOUTON EXCEL ===== */}
+                        <button
+                          onClick={() => {
+                            try {
+                              exportToExcel([a], `analyse-${a.code}`, {
+                                code: 'Code',
+                                'nom.fr': 'Nom',
+                                categorie: 'Catégorie',
+                                'prix.valeur': 'Prix',
+                                'prix.devise': 'Devise',
+                                typeEchantillon: 'Type échantillon',
+                                uniteMesure: 'Unité de mesure',
+                                delaiRendu: 'Délai (heures)'
+                              });
+                              toast.success('✅ Excel généré');
+                            } catch (err) {
+                              console.error('❌ Erreur Excel:', err);
+                              toast.error('Erreur génération Excel');
+                            }
+                          }}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          title="Télécharger Excel"
+                        >
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                          </svg>
+                        </button>
+
+                        {/* Bouton Supprimer */}
                         <button
                           onClick={() => handleDelete(a._id)}
                           className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
