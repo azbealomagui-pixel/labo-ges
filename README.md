@@ -11,7 +11,7 @@ Application professionnelle de gestion de laboratoire médical.
 - Tableau de bord
 - Génération PDF_Assez de soucis
 
-## Technologies
+## Technologies mern
 
 - **Backend** : Node.js, Express, MongoDB
 - **Frontend** : React, Tailwind CSS, Vite
