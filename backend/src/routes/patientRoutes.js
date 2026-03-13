@@ -173,24 +173,28 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-// SUPPRIMER (désactiver) un patient (DELETE /:id)
+// ===== SUPPRESSION PHYSIQUE D'UN PATIENT =====
 router.delete('/:id', async (req, res) => {
   try {
-    const patient = await Patient.findByIdAndUpdate(
-      req.params.id,
-      { actif: false },
-      { new: true }
-    );
+    const patient = await Patient.findByIdAndDelete(req.params.id);
     
+    if (!patient) {
+      return res.status(404).json({
+        success: false,
+        message: 'Patient non trouvé'
+      });
+    }
+
     res.json({
       success: true,
-      message: 'Patient désactivé'
+      message: 'Patient supprimé définitivement'
     });
-    
-  } catch (error) {
+
+  } catch (err) {
+    console.error('Erreur suppression patient:', err);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: err.message || 'Erreur lors de la suppression'
     });
   }
 });

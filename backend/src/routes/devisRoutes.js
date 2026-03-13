@@ -124,7 +124,7 @@ router.post('/', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Erreur création devis:', error);
+    console.error('Erreur création devis:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -147,7 +147,7 @@ router.get('/labo/:laboratoireId', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    console.error('Erreur:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -176,7 +176,7 @@ router.get('/:id', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('❌ Erreur:', error);
+    console.error('Erreur:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -271,7 +271,7 @@ router.put('/:id', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Erreur mise à jour devis:', error);
+    console.error('Erreur mise à jour devis:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -280,10 +280,10 @@ router.put('/:id', async (req, res) => {
 });
 
 
-// ===== SUPPRESSION LOGIQUE D'UN DEVIS =====
+// ===== SUPPRESSION PHYSIQUE D'UN DEVIS =====
 router.delete('/:id', async (req, res) => {
   try {
-    const devis = await Devis.findById(req.params.id);
+    const devis = await Devis.findByIdAndDelete(req.params.id);
     
     if (!devis) {
       return res.status(404).json({
@@ -292,30 +292,16 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    // Suppression logique (changer le statut)
-    devis.statut = 'annule';
-    devis.actif = false;
-    
-    // Ajouter à l'historique si la méthode existe
-    if (typeof devis.ajouterHistorique === 'function') {
-      devis.ajouterHistorique('SUPPRESSION', req.body.userId, { 
-        date: new Date(),
-        raison: 'Suppression manuelle'
-      });
-    }
-    
-    await devis.save();
-
     res.json({
       success: true,
-      message: 'Devis annulé avec succès'
+      message: 'Devis supprimé définitivement'
     });
 
   } catch (err) {
-    console.error('❌ Erreur suppression devis:', err);
+    console.error('Erreur suppression devis:', err);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de la suppression'
+      message: err.message || 'Erreur lors de la suppression'
     });
   }
 });
@@ -383,7 +369,7 @@ router.patch('/:id/statut', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Erreur changement statut:', error);
+    console.error('Erreur changement statut:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur serveur'
