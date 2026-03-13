@@ -1,5 +1,6 @@
 // ==================================
 // FICHIER: src/routes/devisRoutes.js 
+// AVEC: Calcul automatique des totaux
 // ==================================
 
 const express = require('express');
@@ -8,7 +9,7 @@ const Patient = require('../models/Patient');
 const Analyse = require('../models/Analyse');
 const router = express.Router();
 
-// Fonction pour générer un numéro de devis
+// ===== FONCTION POUR GÉNÉRER UN NUMÉRO DE DEVIS =====
 const genererNumero = async () => {
   const date = new Date();
   const annee = date.getFullYear();
@@ -18,16 +19,25 @@ const genererNumero = async () => {
   return `DEV-${annee}${mois}${jour}-${random}`;
 };
 
-// POST créer un devis
+// ===== POST CRÉER UN DEVIS (AVEC CALCULS) =====
 router.post('/', async (req, res) => {
   try {
-    const { laboratoireId, patientId, createdBy, lignes, remiseGlobale, notes, deviseCible } = req.body;
+    const { 
+      laboratoireId, 
+      patientId, 
+      createdBy, 
+      lignes, 
+      remiseGlobale, 
+      notes, 
+      devise 
+    } = req.body;
     
-    // Vérifications de base
+    // ===== VALIDATIONS =====
     if (!laboratoireId || !patientId || !createdBy || !lignes || lignes.length === 0) {
       return res.status(400).json({
         success: false,
-        message: 'Données manquantes'
+        message: 'Données manquantes',
+        required: ['laboratoireId', 'patientId', 'createdBy', 'lignes']
       });
     }
     
@@ -39,23 +49,73 @@ router.post('/', async (req, res) => {
         message: 'Patient non trouvé'
       });
     }
-    
-    // Créer le devis (sans calculs complexes)
+
+    // ===== TRAITEMENT DES LIGNES AVEC CALCUL DES TOTAUX =====
+    let sousTotal = 0;
+    const lignesTraitees = [];
+
+    for (const ligne of lignes) {
+      // Récupérer l'analyse complète pour avoir le prix
+      const analyse = await Analyse.findById(ligne.analyseId);
+      
+      if (!analyse) {
+        return res.status(404).json({
+          success: false,
+          message: `Analyse avec ID ${ligne.analyseId} non trouvée`
+        });
+      }
+
+      const prixUnitaire = analyse.prix?.valeur || 0;
+      const quantite = ligne.quantite || 1;
+      const prixTotal = prixUnitaire * quantite;
+      
+      sousTotal += prixTotal;
+
+      lignesTraitees.push({
+        analyseId: analyse._id,
+        code: analyse.code,
+        nom: analyse.nom?.fr || analyse.nom,
+        categorie: analyse.categorie,
+        prixUnitaire: prixUnitaire,
+        devise: ligne.devise || analyse.prix?.devise || 'EUR',
+        quantite: quantite,
+        prixTotal: prixTotal,
+        observations: ligne.observations || ''
+      });
+    }
+
+    // ===== CALCUL DU TOTAL AVEC REMISE =====
+    const remise = remiseGlobale || 0;
+    const total = sousTotal * (1 - remise / 100);
+
+    // ===== CRÉATION DU DEVIS =====
     const nouveauDevis = new Devis({
       numero: await genererNumero(),
       laboratoireId,
       patientId,
       createdBy,
-      lignes: lignes.map(l => ({
-        analyseId: l.analyseId,
-        quantite: l.quantite || 1
-      })),
-      remiseGlobale: remiseGlobale || 0,
-      notes,
-      deviseCible: deviseCible || 'EUR'
+      devise: devise || 'EUR',
+      lignes: lignesTraitees,
+      sousTotal: { 
+        valeur: Number(sousTotal.toFixed(2)), 
+        devise: devise || 'EUR' 
+      },
+      total: { 
+        valeur: Number(total.toFixed(2)), 
+        devise: devise || 'EUR' 
+      },
+      remiseGlobale: remise,
+      notes: notes || '',
+      statut: 'brouillon',
+      dateEmission: new Date(),
+      dateValidite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // +30 jours
     });
     
     await nouveauDevis.save();
+    
+    // Peupler les références pour la réponse
+    await nouveauDevis.populate('patientId', 'nom prenom telephone');
+    await nouveauDevis.populate('createdBy', 'nom prenom');
     
     res.status(201).json({
       success: true,
@@ -64,21 +124,21 @@ router.post('/', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Erreur:', error);
+    console.error('❌ Erreur création devis:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message || 'Erreur serveur'
     });
   }
 });
 
-// GET tous les devis d'un laboratoire
+// ===== GET TOUS LES DEVIS D'UN LABORATOIRE =====
 router.get('/labo/:laboratoireId', async (req, res) => {
   try {
     const devis = await Devis.find({ laboratoireId: req.params.laboratoireId })
       .populate('patientId', 'nom prenom')
       .populate('createdBy', 'nom prenom')
-      .sort({ createdAt: -1 });
+      .sort({ dateEmission: -1 });
     
     res.json({
       success: true,
@@ -87,6 +147,7 @@ router.get('/labo/:laboratoireId', async (req, res) => {
     });
     
   } catch (error) {
+    console.error('❌ Erreur:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -94,7 +155,7 @@ router.get('/labo/:laboratoireId', async (req, res) => {
   }
 });
 
-// GET un devis par ID
+// ===== GET UN DEVIS PAR ID =====
 router.get('/:id', async (req, res) => {
   try {
     const devis = await Devis.findById(req.params.id)
@@ -115,6 +176,7 @@ router.get('/:id', async (req, res) => {
     });
     
   } catch (error) {
+    console.error('❌ Erreur:', error);
     res.status(500).json({
       success: false,
       message: error.message
@@ -122,10 +184,9 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// SUPPRESSION D'UN DEVIS
+// ===== SUPPRESSION LOGIQUE D'UN DEVIS =====
 router.delete('/:id', async (req, res) => {
   try {
-    // Vérifier si le devis existe
     const devis = await Devis.findById(req.params.id);
     
     if (!devis) {
@@ -135,35 +196,35 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    // Option 1: Suppression logique (changer le statut)
+    // Suppression logique (changer le statut)
     devis.statut = 'annule';
-    devis.ajouterHistorique('SUPPRESSION', req.body.userId, { 
-      date: new Date(),
-      raison: 'Suppression manuelle'
-    });
+    devis.actif = false;
+    
+    // Ajouter à l'historique si la méthode existe
+    if (typeof devis.ajouterHistorique === 'function') {
+      devis.ajouterHistorique('SUPPRESSION', req.body.userId, { 
+        date: new Date(),
+        raison: 'Suppression manuelle'
+      });
+    }
     
     await devis.save();
 
-    // Option 2: Suppression physique (vraie suppression)
-    // await Devis.findByIdAndDelete(req.params.id);
-
     res.json({
       success: true,
-      message: 'Devis supprimé avec succès'
+      message: 'Devis annulé avec succès'
     });
 
   } catch (err) {
-    console.error('❌ Erreur suppression devis:', err.message);
+    console.error('❌ Erreur suppression devis:', err);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de la suppression du devis'
+      message: 'Erreur lors de la suppression'
     });
   }
 });
 
-// ===========================================
-// CHANGER LE STATUT D'UN DEVIS (PATCH)
-// ===========================================
+// ===== CHANGER LE STATUT D'UN DEVIS =====
 router.patch('/:id/statut', async (req, res) => {
   try {
     const { statut, userId } = req.body;
@@ -186,7 +247,7 @@ router.patch('/:id/statut', async (req, res) => {
       });
     }
 
-    // Logique métier : empêcher certains changements
+    // Logique métier
     if (devis.statut === 'paye' && statut !== 'paye') {
       return res.status(400).json({
         success: false,
@@ -201,10 +262,9 @@ router.patch('/:id/statut', async (req, res) => {
       });
     }
 
-    // Mettre à jour le statut
+    const ancienStatut = devis.statut;
     devis.statut = statut;
     
-    // Si le statut devient "payé", enregistrer la date
     if (statut === 'paye') {
       devis.datePaiement = new Date();
     }
@@ -212,9 +272,9 @@ router.patch('/:id/statut', async (req, res) => {
     // Ajouter à l'historique
     if (typeof devis.ajouterHistorique === 'function') {
       devis.ajouterHistorique(
-        `CHANGEMENT_STATUT`,
+        'CHANGEMENT_STATUT',
         userId,
-        { ancien: devis.statut, nouveau: statut }
+        { ancien: ancienStatut, nouveau: statut }
       );
     }
 
@@ -234,8 +294,5 @@ router.patch('/:id/statut', async (req, res) => {
     });
   }
 });
-
-
-
 
 module.exports = router;
