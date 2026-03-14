@@ -36,7 +36,7 @@ import IconCheck from './icons/actions/icon-check.svg';
 import IconX from './icons/actions/icon-x.svg';
 import IconCreditCard from './icons/actions/icon-credit-card.svg';
 import IconBan from './icons/actions/icon-ban.svg';
-
+import IconArchive from './icons/actions/icon-archive.svg';
 
 
 
@@ -69,4 +69,5 @@ export {
   IconX,
   IconCreditCard,
   IconBan,
+  IconArchive,
 };
