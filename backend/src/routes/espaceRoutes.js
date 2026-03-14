@@ -381,4 +381,174 @@ router.post('/:id/employes', async (req, res) => {
   }
 });
 
+// ===========================================
+// LISTER LES MEMBRES D'UN ESPACE (GET)
+// ===========================================
+router.get('/:id/membres', async (req, res) => {
+  try {
+    const membres = await User.find({ 
+      espaceId: req.params.id,
+      actif: true 
+    })
+    .select('-password')
+    .sort({ estProprietaire: -1, role: 1, nom: 1 });
+
+    res.json({
+      success: true,
+      count: membres.length,
+      membres
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur chargement membres:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Erreur serveur'
+    });
+  }
+});
+
+
+// ===========================================
+// CRÉER UN MEMBRE DANS L'ESPACE (POST)
+// ===========================================
+router.post('/:id/membres', async (req, res) => {
+  try {
+    const { nom, prenom, email, password, role, poste } = req.body;
+    const espaceId = req.params.id;
+
+    // Validation
+    const missingFields = [];
+    if (!nom) missingFields.push('nom');
+    if (!prenom) missingFields.push('prenom');
+    if (!email) missingFields.push('email');
+    if (!password) missingFields.push('password');
+
+    if (missingFields.length > 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Champs obligatoires manquants',
+        required: missingFields
+      });
+    }
+
+    // Vérifier que l'espace existe
+    const espace = await Espace.findById(espaceId);
+    if (!espace) {
+      return res.status(404).json({
+        success: false,
+        message: 'Espace non trouvé'
+      });
+    }
+
+    // Vérifier email unique
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: 'Cet email est déjà utilisé'
+      });
+    }
+
+    // Créer le membre
+    const nouveauMembre = new User({
+      nom,
+      prenom,
+      email,
+      password,
+      role: role || 'technicien',
+      espaceId,
+      estProprietaire: false,
+      poste: poste || '',
+      actif: true
+    });
+
+    await nouveauMembre.save();
+
+    const membreResponse = nouveauMembre.toObject();
+    delete membreResponse.password;
+
+    res.status(201).json({
+      success: true,
+      message: 'Membre créé avec succès',
+      membre: membreResponse
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur création membre:', error);
+    
+    if (error.name === 'ValidationError') {
+      return res.status(400).json({
+        success: false,
+        message: 'Erreur de validation',
+        errors: Object.keys(error.errors).map(key => ({
+          field: key,
+          message: error.errors[key].message
+        }))
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Erreur serveur'
+    });
+  }
+});
+
+
+
+// ===========================================
+// METTRE À JOUR UN MEMBRE (PUT)
+// ===========================================
+router.put('/:espaceId/membres/:userId', async (req, res) => {
+  try {
+    const { role, poste, actif } = req.body;
+    const { espaceId, userId } = req.params;
+
+    // Vérifier que le membre appartient bien à cet espace
+    const membre = await User.findOne({ 
+      _id: userId, 
+      espaceId: espaceId 
+    });
+
+    if (!membre) {
+      return res.status(404).json({
+        success: false,
+        message: 'Membre non trouvé dans cet espace'
+      });
+    }
+
+    // Empêcher la modification du propriétaire
+    if (membre.estProprietaire) {
+      return res.status(403).json({
+        success: false,
+        message: 'Le propriétaire ne peut pas être modifié'
+      });
+    }
+
+    // Mise à jour
+    if (role) membre.role = role;
+    if (poste !== undefined) membre.poste = poste;
+    if (actif !== undefined) membre.actif = actif;
+
+    await membre.save();
+
+    const membreResponse = membre.toObject();
+    delete membreResponse.password;
+
+    res.json({
+      success: true,
+      message: 'Membre mis à jour',
+      membre: membreResponse
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur mise à jour membre:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Erreur serveur'
+    });
+  }
+});
+
 module.exports = router;

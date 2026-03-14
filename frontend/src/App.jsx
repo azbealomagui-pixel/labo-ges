@@ -20,6 +20,9 @@ import DevisForm from './pages/DevisForm';
 import FicheAnalyseForm from './pages/FicheAnalyseForm';
 import CreerEspace from './pages/CreerEspace';
 import Register from './pages/Register';
+import GestionMembres from './pages/GestionMembres';
+
+
 
 /**
  * Composant pour les routes protégées
@@ -142,6 +145,13 @@ function App() {
             </div>
           </div>
         } />
+    
+      <Route path="/membres" element={
+        <ProtectedRoute>
+          <GestionMembres />
+        </ProtectedRoute>
+      } />
+      
       </Routes>
 
       {/* ===== FOOTER PROFESSIONNEL ===== */}
