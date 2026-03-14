@@ -10,6 +10,9 @@ import { toast } from 'react-toastify';
 import useAuth from '../hooks/useAuth';
 import api from '../services/api';
 import ActivityChart from '../components/dashboard/ActivityChart';
+import Notifications from '../components/Notifications';
+
+
 
 // Imports des icônes
 import {
@@ -137,14 +140,15 @@ const Dashboard = () => {
           <div className="flex justify-between items-center">
             <h1 className="text-2xl font-bold text-primary-600">LaboGest</h1>
             <div className="flex items-center gap-4">
-              <div className="text-right">
-                <p className="text-sm font-medium text-gray-900">
-                  {user?.prenom} {user?.nom}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {user?.role === 'manager_labo' ? 'Directeur' : 'Technicien'}
-                </p>
-              </div>
+               <Notifications />
+                <div className="text-right">
+                  <p className="text-sm font-medium text-gray-900">
+                    {user?.prenom} {user?.nom}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {user?.role === 'manager_labo' ? 'Directeur' : 'Technicien'}
+                  </p>
+                </div>
               <button
                 onClick={logout}
                 className="px-4 py-2 text-sm bg-red-50 text-red-700 rounded-lg hover:bg-red-100 transition-colors border border-red-200"

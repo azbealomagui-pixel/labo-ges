@@ -24,6 +24,10 @@ import GestionMembres from './pages/GestionMembres';
 import RapportForm from './pages/RapportForm';
 import Messagerie from './pages/Messagerie';
 import Abonnement from './pages/Abonnement';
+import { SocketProvider } from './context/SocketContext';
+
+
+
 
 
 /**
@@ -38,184 +42,186 @@ const ProtectedRoute = ({ children }) => {
 function App() {
   return (
     <BrowserRouter>
-      {/* Notifications toast */}
-      <ToastContainer 
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="colored"
-      />
-      
-      <Routes>
-        {/* ===== ROUTES PUBLIQUES ===== */}
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+      <SocketProvider>
+        {/* Notifications toast */}
+        <ToastContainer 
+          position="top-right"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="colored"
+        />
         
-        {/* ===== REDIRECTION PAR DÉFAUT ===== */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
-        
-        {/* ===== ROUTES PROTÉGÉES ===== */}
-        <Route path="/dashboard" element={
-          <ProtectedRoute>
-            <Dashboard />
-          </ProtectedRoute>
-        } />
-        
-        {/* ===== GESTION DES PATIENTS ===== */}
-        <Route path="/patients" element={
-          <ProtectedRoute>
-            <Patients />
-          </ProtectedRoute>
-        } />
-        <Route path="/patients/new" element={
-          <ProtectedRoute>
-            <PatientForm />
-          </ProtectedRoute>
-        } />
-        <Route path="/patients/:id" element={
-          <ProtectedRoute>
-            <PatientForm />
-          </ProtectedRoute>
-        } />
-        
-        {/* ===== GESTION DES ANALYSES ===== */}
-        <Route path="/analyses" element={
-          <ProtectedRoute>
-            <Analyses />
-          </ProtectedRoute>
-        } />
-        <Route path="/analyses/new" element={
-          <ProtectedRoute>
-            <AnalyseForm />
-          </ProtectedRoute>
-        } />
-        <Route path="/analyses/:id" element={
-          <ProtectedRoute>
-            <AnalyseForm />
-          </ProtectedRoute>
-        } />
+        <Routes>
+          {/* ===== ROUTES PUBLIQUES ===== */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          
+          {/* ===== REDIRECTION PAR DÉFAUT ===== */}
+          <Route path="/" element={<Navigate to="/login" replace />} />
+          
+          {/* ===== ROUTES PROTÉGÉES ===== */}
+          <Route path="/dashboard" element={
+            <ProtectedRoute>
+              <Dashboard />
+            </ProtectedRoute>
+          } />
+          
+          {/* ===== GESTION DES PATIENTS ===== */}
+          <Route path="/patients" element={
+            <ProtectedRoute>
+              <Patients />
+            </ProtectedRoute>
+          } />
+          <Route path="/patients/new" element={
+            <ProtectedRoute>
+              <PatientForm />
+            </ProtectedRoute>
+          } />
+          <Route path="/patients/:id" element={
+            <ProtectedRoute>
+              <PatientForm />
+            </ProtectedRoute>
+          } />
+          
+          {/* ===== GESTION DES ANALYSES ===== */}
+          <Route path="/analyses" element={
+            <ProtectedRoute>
+              <Analyses />
+            </ProtectedRoute>
+          } />
+          <Route path="/analyses/new" element={
+            <ProtectedRoute>
+              <AnalyseForm />
+            </ProtectedRoute>
+          } />
+          <Route path="/analyses/:id" element={
+            <ProtectedRoute>
+              <AnalyseForm />
+            </ProtectedRoute>
+          } />
 
-        {/* ===== FICHE D'ANALYSES PATIENT ===== */}
-        <Route path="/fiche-analyses/new" element={
-          <ProtectedRoute>
-            <FicheAnalyseForm />
-          </ProtectedRoute>
-        } />
-        
-        {/* ===== GESTION DES DEVIS ===== */}
-        <Route path="/devis" element={
-          <ProtectedRoute>
-            <Devis />
-          </ProtectedRoute>
-        } />
-        <Route path="/devis/:id" element={
-          <ProtectedRoute>
-            <DevisForm />
-          </ProtectedRoute>
-        } />
-        <Route path="/devis/new" element={
-          <ProtectedRoute>
-            <DevisForm />
-          </ProtectedRoute>
-        } />
+          {/* ===== FICHE D'ANALYSES PATIENT ===== */}
+          <Route path="/fiche-analyses/new" element={
+            <ProtectedRoute>
+              <FicheAnalyseForm />
+            </ProtectedRoute>
+          } />
+          
+          {/* ===== GESTION DES DEVIS ===== */}
+          <Route path="/devis" element={
+            <ProtectedRoute>
+              <Devis />
+            </ProtectedRoute>
+          } />
+          <Route path="/devis/:id" element={
+            <ProtectedRoute>
+              <DevisForm />
+            </ProtectedRoute>
+          } />
+          <Route path="/devis/new" element={
+            <ProtectedRoute>
+              <DevisForm />
+            </ProtectedRoute>
+          } />
 
-        {/* ===== CRÉATION D'ESPACE (après inscription) ===== */}
-        <Route path="/creer-espace" element={
-          <ProtectedRoute>
-            <CreerEspace />
-          </ProtectedRoute>
-        } />
-        
-        {/* ===== ROUTE 404 ===== */}
-        <Route path="*" element={
-          <div className="min-h-screen flex items-center justify-center bg-gray-50">
-            <div className="text-center">
-              <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
-              <p className="text-gray-600 mb-6">Page non trouvée</p>
-              <a 
-                href="/dashboard" 
-                className="inline-block bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors"
-              >
-                Retour au tableau de bord
-              </a>
+          {/* ===== CRÉATION D'ESPACE (après inscription) ===== */}
+          <Route path="/creer-espace" element={
+            <ProtectedRoute>
+              <CreerEspace />
+            </ProtectedRoute>
+          } />
+          
+          {/* ===== ROUTE 404 ===== */}
+          <Route path="*" element={
+            <div className="min-h-screen flex items-center justify-center bg-gray-50">
+              <div className="text-center">
+                <h1 className="text-4xl font-bold text-gray-900 mb-4">404</h1>
+                <p className="text-gray-600 mb-6">Page non trouvée</p>
+                <a 
+                  href="/dashboard" 
+                  className="inline-block bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors"
+                >
+                  Retour au tableau de bord
+                </a>
+              </div>
             </div>
-          </div>
-        } />
-    
-      <Route path="/membres" element={
-        <ProtectedRoute>
-          <GestionMembres />
-        </ProtectedRoute>
-      } />
-
-      <Route path="/rapport/:id" element={
-        <ProtectedRoute>
-          <RapportForm />
-        </ProtectedRoute>
-      } />
-
-      <Route path="/messages" element={
-        <ProtectedRoute>
-          <Messagerie />
-        </ProtectedRoute>
-      } />
-
-      <Route path="/abonnement" element={
-        <ProtectedRoute>
-          <Abonnement />
-        </ProtectedRoute>
-      } />
+          } />
       
-      </Routes>
+        <Route path="/membres" element={
+          <ProtectedRoute>
+            <GestionMembres />
+          </ProtectedRoute>
+        } />
 
-      {/* ===== FOOTER PROFESSIONNEL ===== */}
-      <footer className="bg-white border-t border-gray-200 py-8 mt-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6">
-            {/* Copyright */}
-            <div className="text-sm text-gray-600">
-              © {new Date().getFullYear()} <span className="font-semibold text-primary-600">LaboGest</span>. 
-              Tous droits réservés.
+        <Route path="/rapport/:id" element={
+          <ProtectedRoute>
+            <RapportForm />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/messages" element={
+          <ProtectedRoute>
+            <Messagerie />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/abonnement" element={
+          <ProtectedRoute>
+            <Abonnement />
+          </ProtectedRoute>
+        } />
+        
+        </Routes>
+
+        {/* ===== FOOTER PROFESSIONNEL ===== */}
+        <footer className="bg-white border-t border-gray-200 py-8 mt-16">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+              {/* Copyright */}
+              <div className="text-sm text-gray-600">
+                © {new Date().getFullYear()} <span className="font-semibold text-primary-600">LaboGest</span>. 
+                Tous droits réservés.
+              </div>
+              
+              {/* Liens légaux */}
+              <div className="flex gap-8 text-sm">
+                <a 
+                  href="#" 
+                  className="text-gray-500 hover:text-primary-600 transition-colors"
+                  onClick={(e) => e.preventDefault()}
+                >
+                  Confidentialité
+                </a>
+                <a 
+                  href="#" 
+                  className="text-gray-500 hover:text-primary-600 transition-colors"
+                  onClick={(e) => e.preventDefault()}
+                >
+                  CGU
+                </a>
+                <a 
+                  href="#" 
+                  className="text-gray-500 hover:text-primary-600 transition-colors"
+                  onClick={(e) => e.preventDefault()}
+                >
+                  Contact
+                </a>
+              </div>
             </div>
             
-            {/* Liens légaux */}
-            <div className="flex gap-8 text-sm">
-              <a 
-                href="#" 
-                className="text-gray-500 hover:text-primary-600 transition-colors"
-                onClick={(e) => e.preventDefault()}
-              >
-                Confidentialité
-              </a>
-              <a 
-                href="#" 
-                className="text-gray-500 hover:text-primary-600 transition-colors"
-                onClick={(e) => e.preventDefault()}
-              >
-                CGU
-              </a>
-              <a 
-                href="#" 
-                className="text-gray-500 hover:text-primary-600 transition-colors"
-                onClick={(e) => e.preventDefault()}
-              >
-                Contact
-              </a>
+            {/* Version */}
+            <div className="text-center text-xs text-gray-400 mt-6">
+              Application professionnelle de gestion de laboratoire médical v1.0.0
             </div>
           </div>
-          
-          {/* Version */}
-          <div className="text-center text-xs text-gray-400 mt-6">
-            Application professionnelle de gestion de laboratoire médical v1.0.0
-          </div>
-        </div>
-      </footer>
+        </footer>
+      </SocketProvider>
     </BrowserRouter>
   );
 }

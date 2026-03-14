@@ -1,10 +1,10 @@
 // ===========================================
 // PAGE: Login
-// RÔLE: Page de connexion avec lien d'inscription
+// RÔLE: Page de connexion
 // ===========================================
 
-import React, { useState } from 'react';
-import { Link } from 'react-router-dom';  // ← Correction : plus de useNavigate
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import useAuth from '../hooks/useAuth';
 import Input from '../components/common/Input';
@@ -13,8 +13,22 @@ import { LogoLab, BgLogin } from '../assets';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
-  const { login } = useAuth();
   const [showPassword, setShowPassword] = useState(false);
+  const { login } = useAuth();
+
+  // ===== DEMANDER LA PERMISSION DE NOTIFICATION =====
+  useEffect(() => {
+    if (!("Notification" in window)) {
+      console.log("Ce navigateur ne supporte pas les notifications");
+      return;
+    }
+
+    if (Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        console.log('Permission notification:', permission);
+      });
+    }
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

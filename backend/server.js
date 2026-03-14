@@ -148,3 +148,41 @@ process.on('unhandledRejection', (error) => {
   console.error('🔥 Promise non gérée:', error);
   process.exit(1);
 });
+
+
+// ===== SERVEUR HTTP POUR SOCKET.IO =====
+const http = require('http');
+const socketIo = require('socket.io');
+
+// Créer le serveur HTTP
+const server = http.createServer(app);
+
+// Configurer Socket.IO
+const io = socketIo(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    methods: ['GET', 'POST'],
+    credentials: true
+  }
+});
+
+// Gestion des connexions
+io.on('connection', (socket) => {
+  console.log('🔌 Nouvelle connexion socket:', socket.id);
+
+  // Rejoindre une room (espaceId)
+  socket.on('join-espace', (espaceId) => {
+    socket.join(espaceId);
+    console.log(`👥 Socket ${socket.id} a rejoint l'espace ${espaceId}`);
+  });
+
+  // Déconnexion
+  socket.on('disconnect', () => {
+    console.log('🔌 Déconnexion socket:', socket.id);
+  });
+});
+
+// Remplacer app.listen par server.listen
+server.listen(PORT, () => {
+  console.log(`🚀 Serveur démarré sur http://localhost:${PORT}`);
+});

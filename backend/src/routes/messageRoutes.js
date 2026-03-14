@@ -175,4 +175,18 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+
+// Après avoir sauvegardé un nouveau message
+await nouveauMessage.save();
+
+// Émettre une notification aux destinataires
+nouveauMessage.destinataires.forEach(destinataireId => {
+  io.to(destinataireId.toString()).emit('nouveau-message', {
+    messageId: nouveauMessage._id,
+    expediteur: nouveauMessage.expediteur,
+    sujet: nouveauMessage.sujet,
+    date: nouveauMessage.dateEnvoi
+  });
+});
+
 module.exports = router;
