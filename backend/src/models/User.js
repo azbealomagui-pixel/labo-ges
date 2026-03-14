@@ -1,7 +1,7 @@
 // ===========================================
 // FICHIER: src/models/User.js
 // RÔLE: Modèle Mongoose pour les utilisateurs
-// VERSION: Finale avec bcrypt, sécurité et multi-espaces
+// VERSION: Finale avec multi-espaces et inscription
 // ===========================================
 
 const mongoose = require('mongoose');
@@ -49,7 +49,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: {
       values: [
-        'super_admin',    // Administrateur général
+        'super_admin',     // Administrateur général
         'admin_delegue',   // Administrateur délégué
         'manager_labo',    // Directeur de laboratoire
         'biologiste',      // Biologiste (valide les résultats)
@@ -63,13 +63,13 @@ const userSchema = new mongoose.Schema({
     default: 'technicien'
   },
 
-  // ===== NOUVEAUX CHAMPS POUR MULTI-ESPACES =====
+  // ===== CHAMPS POUR MULTI-ESPACES =====
   espaceId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Espace',
-    required: function() {
-      return this.role !== 'super_admin';
-    }
+    // ✅ OPTIONNEL pour permettre l'inscription sans espace
+    required: false,
+    // Note : sera requis après création d'espace
   },
 
   estProprietaire: {
@@ -79,17 +79,15 @@ const userSchema = new mongoose.Schema({
 
   poste: {
     type: String,
-    default: ''
+    default: '',
+    trim: true
   },
 
-  // ===== LABORATOIRE DE RATTACHEMENT (ANCIEN) =====
+  // ===== ANCIEN SYSTÈME (POUR COMPATIBILITÉ) =====
   laboratoireId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Laboratoire',
-    required: function() {
-      // Seul super_admin n'a pas besoin de laboratoire
-      return this.role !== 'super_admin';
-    }
+    required: false, // Rendu optionnel pour migration
   },
 
   // ===== STATUT DU COMPTE =====
@@ -98,24 +96,36 @@ const userSchema = new mongoose.Schema({
     default: true
   }
 }, {
-  timestamps: true // Ajoute automatiquement createdAt et updatedAt
+  timestamps: true // Ajoute createdAt et updatedAt automatiquement
 });
 
 // ===========================================
-// MIDDLEWARE : Hachage automatique du mot de passe
+// INDEX POUR OPTIMISER LES RECHERCHES
 // ===========================================
-// S'exécute AVANT de sauvegarder un utilisateur
+userSchema.index({ email: 1 });           // Recherche par email
+userSchema.index({ espaceId: 1 });        // Filtre par espace
+userSchema.index({ role: 1 });            // Filtre par rôle
+userSchema.index({ actif: 1 });           // Filtre par statut
+
+// ===========================================
+// MIDDLEWARE PRE-SAVE : Hachage automatique du mot de passe
+// ===========================================
 userSchema.pre('save', async function(next) {
-  // Si le mot de passe n'a pas été modifié, on passe
+  // Ne pas re-hacher si le mot de passe n'a pas changé
   if (!this.isModified('password')) {
     return next();
   }
 
   try {
+    // Vérifier que le mot de passe est présent
+    if (!this.password) {
+      throw new Error('Le mot de passe ne peut pas être vide');
+    }
+
     // Générer un salt (facteur de complexité = 10)
     const salt = await bcrypt.genSalt(10);
     
-    // Hacher le mot de passe avec le salt
+    // Hacher le mot de passe
     this.password = await bcrypt.hash(this.password, salt);
     
     next();
@@ -125,16 +135,47 @@ userSchema.pre('save', async function(next) {
 });
 
 // ===========================================
+// MIDDLEWARE PRE-VALIDATE : Nettoyage des données
+// ===========================================
+userSchema.pre('validate', function(next) {
+  // Nettoyer les champs texte
+  if (this.nom) this.nom = this.nom.trim();
+  if (this.prenom) this.prenom = this.prenom.trim();
+  if (this.email) this.email = this.email.toLowerCase().trim();
+  
+  next();
+});
+
+// ===========================================
 // MÉTHODE : Comparaison des mots de passe
 // ===========================================
-// Utilisée lors de la connexion pour vérifier le mot de passe
 userSchema.methods.comparePassword = async function(candidatePassword) {
   try {
-    // Compare le mot de passe fourni avec le hash stocké
+    if (!candidatePassword) {
+      throw new Error('Mot de passe requis pour la comparaison');
+    }
     return await bcrypt.compare(candidatePassword, this.password);
   } catch (error) {
     throw new Error('Erreur lors de la comparaison des mots de passe');
   }
+};
+
+// ===========================================
+// MÉTHODE : Obtenir les informations publiques
+// ===========================================
+userSchema.methods.toPublicJSON = function() {
+  const userObject = this.toObject();
+  delete userObject.password;
+  delete userObject.__v;
+  return userObject;
+};
+
+// ===========================================
+// STATIC : Vérifier si l'email est disponible
+// ===========================================
+userSchema.statics.isEmailAvailable = async function(email) {
+  const user = await this.findOne({ email });
+  return !user;
 };
 
 // ===========================================
