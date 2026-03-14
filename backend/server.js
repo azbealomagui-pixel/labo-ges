@@ -44,14 +44,14 @@ const limiter = rateLimit({
 });
 
 // Limiteur strict pour les routes sensibles (login/register)
-/*const authLimiter = rateLimit({
+const authLimiter = rateLimit({
   windowMs: 60 * 60 * 1000, // 1 heure
   max: 5, // 5 tentatives max par heure
   message: {
     success: false,
     message: 'Trop de tentatives, compte temporairement bloqué'
   }
-});*/
+});
 
 // Appliquer le rate limiting global à toutes les routes
 app.use(limiter);
@@ -67,8 +67,8 @@ const ficheAnalyseRoutes = require('./src/routes/ficheAnalyseRoutes');
 const espaceRoutes = require('./src/routes/espaceRoutes');
 
 // ===== 8. APPLIQUER LE RATE LIMITING STRICT AUX ROUTES SENSIBLES =====
-//app.use('/api/users/login', authLimiter);
-//app.use('/api/users/register', authLimiter);
+app.use('/api/users/login', authLimiter);
+app.use('/api/users/register', authLimiter);
 
 // ===== 9. UTILISER LES ROUTES =====
 app.use('/api/users', userRoutes);

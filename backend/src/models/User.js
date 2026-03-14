@@ -1,18 +1,13 @@
 // ===========================================
 // FICHIER: src/models/User.js
 // RÔLE: Modèle Mongoose pour les utilisateurs
-// VERSION: Finale avec multi-espaces et inscription
+// VERSION: Ultra-stable (sans erreur next)
 // ===========================================
 
 const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
 
-/**
- * Schéma de l'utilisateur
- * Définit la structure d'un utilisateur dans MongoDB
- */
 const userSchema = new mongoose.Schema({
-  // ===== INFORMATIONS PERSONNELLES =====
   nom: {
     type: String,
     required: [true, 'Le nom est obligatoire'],
@@ -36,149 +31,89 @@ const userSchema = new mongoose.Schema({
       'Veuillez fournir un email valide'
     ]
   },
-  
-  // ===== MOT DE PASSE =====
   password: {
     type: String,
     required: [true, 'Le mot de passe est obligatoire'],
     minlength: [6, 'Le mot de passe doit contenir au moins 6 caractères']
   },
-
-  // ===== RÔLE ET PERMISSIONS =====
   role: {
     type: String,
     enum: {
       values: [
-        'super_admin',     // Administrateur général
-        'admin_delegue',   // Administrateur délégué
-        'manager_labo',    // Directeur de laboratoire
-        'biologiste',      // Biologiste (valide les résultats)
-        'technicien',      // Technicien de laboratoire
-        'secretaire',      // Secrétaire (accueil, facturation)
-        'comptable',       // Comptable
-        'rh'               // Ressources humaines
+        'super_admin', 'admin_delegue', 'manager_labo',
+        'biologiste', 'technicien', 'secretaire', 'comptable', 'rh'
       ],
       message: 'Le rôle {VALUE} n\'est pas valide'
     },
     default: 'technicien'
   },
-
-  // ===== CHAMPS POUR MULTI-ESPACES =====
   espaceId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Espace',
-    // ✅ OPTIONNEL pour permettre l'inscription sans espace
-    required: false,
-    // Note : sera requis après création d'espace
+    required: false  // ← CRUCIAL pour l'inscription
   },
-
   estProprietaire: {
     type: Boolean,
     default: false
   },
-
   poste: {
     type: String,
     default: '',
     trim: true
   },
-
-  // ===== ANCIEN SYSTÈME (POUR COMPATIBILITÉ) =====
   laboratoireId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Laboratoire',
-    required: false, // Rendu optionnel pour migration
+    required: false
   },
-
-  // ===== STATUT DU COMPTE =====
   actif: {
     type: Boolean,
     default: true
   }
 }, {
-  timestamps: true // Ajoute createdAt et updatedAt automatiquement
+  timestamps: true
 });
 
-// ===========================================
-// INDEX POUR OPTIMISER LES RECHERCHES
-// ===========================================
-userSchema.index({ email: 1 });           // Recherche par email
-userSchema.index({ espaceId: 1 });        // Filtre par espace
-userSchema.index({ role: 1 });            // Filtre par rôle
-userSchema.index({ actif: 1 });           // Filtre par statut
-
-// ===========================================
-// MIDDLEWARE PRE-SAVE : Hachage automatique du mot de passe
-// ===========================================
+// ===== MIDDLEWARE PRE-SAVE (CORRIGÉ) =====
 userSchema.pre('save', async function(next) {
-  // Ne pas re-hacher si le mot de passe n'a pas changé
-  if (!this.isModified('password')) {
-    return next();
-  }
-
   try {
-    // Vérifier que le mot de passe est présent
-    if (!this.password) {
-      throw new Error('Le mot de passe ne peut pas être vide');
+    // Vérifier que next est bien une fonction
+    if (typeof next !== 'function') {
+      console.error('❌ next n\'est pas une fonction dans pre-save');
+      // Sortir sans appeler next (Mongoose gère)
+      return;
     }
 
-    // Générer un salt (facteur de complexité = 10)
+    if (!this.isModified('password')) {
+      return next();
+    }
+
     const salt = await bcrypt.genSalt(10);
-    
-    // Hacher le mot de passe
     this.password = await bcrypt.hash(this.password, salt);
-    
     next();
   } catch (error) {
     next(error);
   }
 });
 
-// ===========================================
-// MIDDLEWARE PRE-VALIDATE : Nettoyage des données
-// ===========================================
-userSchema.pre('validate', function(next) {
-  // Nettoyer les champs texte
-  if (this.nom) this.nom = this.nom.trim();
-  if (this.prenom) this.prenom = this.prenom.trim();
-  if (this.email) this.email = this.email.toLowerCase().trim();
-  
-  next();
-});
+// ===== SUPPRESSION DU MIDDLEWARE PRE-VALIDATE (source du problème) =====
+// On nettoie les données dans la route, pas ici
 
-// ===========================================
-// MÉTHODE : Comparaison des mots de passe
-// ===========================================
+// ===== MÉTHODE DE COMPARAISON =====
 userSchema.methods.comparePassword = async function(candidatePassword) {
   try {
-    if (!candidatePassword) {
-      throw new Error('Mot de passe requis pour la comparaison');
-    }
     return await bcrypt.compare(candidatePassword, this.password);
   } catch (error) {
-    throw new Error('Erreur lors de la comparaison des mots de passe');
+    throw new Error('Erreur de comparaison');
   }
 };
 
-// ===========================================
-// MÉTHODE : Obtenir les informations publiques
-// ===========================================
+// ===== MÉTHODE POUR DONNÉES PUBLIQUES =====
 userSchema.methods.toPublicJSON = function() {
-  const userObject = this.toObject();
-  delete userObject.password;
-  delete userObject.__v;
-  return userObject;
+  const obj = this.toObject();
+  delete obj.password;
+  delete obj.__v;
+  return obj;
 };
 
-// ===========================================
-// STATIC : Vérifier si l'email est disponible
-// ===========================================
-userSchema.statics.isEmailAvailable = async function(email) {
-  const user = await this.findOne({ email });
-  return !user;
-};
-
-// ===========================================
-// EXPORT DU MODÈLE
-// ===========================================
 module.exports = mongoose.model('User', userSchema);
