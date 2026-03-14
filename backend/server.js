@@ -65,6 +65,9 @@ const devisRoutes = require('./src/routes/devisRoutes');
 const statsRoutes = require('./src/routes/statsRoutes');
 const ficheAnalyseRoutes = require('./src/routes/ficheAnalyseRoutes');
 const espaceRoutes = require('./src/routes/espaceRoutes');
+const rapportRoutes = require('./src/routes/rapportRoutes');
+
+
 
 // ===== 8. APPLIQUER LE RATE LIMITING STRICT AUX ROUTES SENSIBLES =====
 app.use('/api/users/login', authLimiter);
@@ -79,6 +82,9 @@ app.use('/api/devis', devisRoutes);
 app.use('/api/stats', statsRoutes);
 app.use('/api/fiches-analyses', ficheAnalyseRoutes);
 app.use('/api/espaces', espaceRoutes);
+app.use('/api/rapports', rapportRoutes);
+
+
 
 // ===== 10. ROUTES DE TEST =====
 app.get('/', (req, res) => {

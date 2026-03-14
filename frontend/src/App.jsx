@@ -21,7 +21,7 @@ import FicheAnalyseForm from './pages/FicheAnalyseForm';
 import CreerEspace from './pages/CreerEspace';
 import Register from './pages/Register';
 import GestionMembres from './pages/GestionMembres';
-
+import RapportForm from './pages/RapportForm';
 
 
 /**
@@ -149,6 +149,12 @@ function App() {
       <Route path="/membres" element={
         <ProtectedRoute>
           <GestionMembres />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/rapport/:id" element={
+        <ProtectedRoute>
+          <RapportForm />
         </ProtectedRoute>
       } />
       
