@@ -22,6 +22,8 @@ import CreerEspace from './pages/CreerEspace';
 import Register from './pages/Register';
 import GestionMembres from './pages/GestionMembres';
 import RapportForm from './pages/RapportForm';
+import Messagerie from './pages/Messagerie';
+
 
 
 /**
@@ -155,6 +157,12 @@ function App() {
       <Route path="/rapport/:id" element={
         <ProtectedRoute>
           <RapportForm />
+        </ProtectedRoute>
+      } />
+
+      <Route path="/messages" element={
+        <ProtectedRoute>
+          <Messagerie />
         </ProtectedRoute>
       } />
       

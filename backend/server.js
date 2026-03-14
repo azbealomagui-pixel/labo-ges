@@ -66,6 +66,8 @@ const statsRoutes = require('./src/routes/statsRoutes');
 const ficheAnalyseRoutes = require('./src/routes/ficheAnalyseRoutes');
 const espaceRoutes = require('./src/routes/espaceRoutes');
 const rapportRoutes = require('./src/routes/rapportRoutes');
+const messageRoutes = require('./src/routes/messageRoutes');
+
 
 
 
@@ -83,6 +85,8 @@ app.use('/api/stats', statsRoutes);
 app.use('/api/fiches-analyses', ficheAnalyseRoutes);
 app.use('/api/espaces', espaceRoutes);
 app.use('/api/rapports', rapportRoutes);
+app.use('/api/messages', messageRoutes);
+
 
 
 
