@@ -41,16 +41,16 @@ const Dashboard = () => {
     const fetchData = async () => {
       try {
         // Compter les patients
-        const patientsRes = await api.get(`/patients/labo/${user.laboratoireId}`);
+        const patientsRes = await api.get(`/patients/labo/${user.espaceId}`);
         // Compter les analyses
-        const analysesRes = await api.get(`/analyses/labo/${user.laboratoireId}`);
+        const analysesRes = await api.get(`/analyses/labo/${user.espaceId}`);
         // Compter les devis
-        const devisRes = await api.get(`/devis/labo/${user.laboratoireId}`);
+        const devisRes = await api.get(`/devis/labo/${user.espaceId}`);
         
         // Récupérer les stats rapides (si disponible)
         let caMensuel = 0;
         try {
-          const quickRes = await api.get(`/stats/labo/${user.laboratoireId}/quick`);
+          const quickRes = await api.get(`/stats/labo/${user.espaceId}/quick`);
           caMensuel = quickRes.data.quickStats?.ca || 0;
         } catch (err) {
           console.log('Stats rapides non disponibles');
@@ -66,7 +66,7 @@ const Dashboard = () => {
 
         // Données pour le graphique (évolution mensuelle)
         try {
-          const evoRes = await api.get(`/stats/labo/${user.laboratoireId}?period=6months`);
+          const evoRes = await api.get(`/stats/labo/${user.espaceId}?period=6months`);
           if (evoRes.data.evolution && evoRes.data.evolution.length > 0) {
             setChartData({
               labels: evoRes.data.evolution.map(item => item.month || 'Mois'),
