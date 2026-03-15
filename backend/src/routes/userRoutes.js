@@ -8,10 +8,11 @@ const express = require('express');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const router = express.Router();
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const PasswordReset = require('../models/PasswordReset');
+const router = express.Router();
+
 
 // ===========================================
 // CRÉER UN UTILISATEUR (POST)
