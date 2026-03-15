@@ -24,7 +24,7 @@ import GestionMembres from './pages/GestionMembres';
 import RapportForm from './pages/RapportForm';
 import Messagerie from './pages/Messagerie';
 import Abonnement from './pages/Abonnement';
-
+import InstallPWA from './components/InstallPWA';
 // Providers
 import { SocketProvider } from './providers/SocketProvider';
 

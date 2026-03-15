@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['icons/*.png', 'offline.html'],
+      includeAssets: ['icons/*.png', 'offline.html', 'manifest.webmanifest'],
       manifest: {
         name: 'LaboGes - Gestion de laboratoire',
         short_name: 'LaboGes',

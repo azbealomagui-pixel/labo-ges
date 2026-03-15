@@ -40,7 +40,7 @@ const InstallPWA = () => {
         </div>
         <div className="flex-1">
           <h3 className="text-sm font-medium text-gray-900">
-            Installer LaboGest
+            Installer Laboges
           </h3>
           <p className="text-xs text-gray-500 mt-1">
             Installez l'application pour un accès plus rapide
