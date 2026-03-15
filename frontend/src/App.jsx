@@ -26,7 +26,8 @@ import Messagerie from './pages/Messagerie';
 import Abonnement from './pages/Abonnement';
 import InstallPWA from './components/InstallPWA';
 import Parametres from './pages/Parametres';
-
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 
 
 // Providers
@@ -188,6 +189,16 @@ function App() {
               </div>
             </div>
           } />
+
+
+          // Dans les routes publiques
+          <Route path="/forgot-password" element={<ForgotPassword />} />
+          <Route path="/reset-password/:token" element={<ResetPassword />} />
+
+
+
+
+
         </Routes>
 
         {/* ===== FOOTER PROFESSIONNEL ===== */}

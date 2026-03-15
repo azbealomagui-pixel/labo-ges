@@ -9,6 +9,9 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
 const router = express.Router();
+const crypto = require('crypto');
+const nodemailer = require('nodemailer');
+const PasswordReset = require('../models/PasswordReset');
 
 // ===========================================
 // CRÉER UN UTILISATEUR (POST)
@@ -385,5 +388,155 @@ router.delete('/:id', async (req, res) => {
     });
   }
 });
+
+// ===========================================
+// DEMANDE DE RÉINITIALISATION (POST /forgot-password)
+// ===========================================
+router.post('/forgot-password', async (req, res) => {
+  try {
+    const { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        message: 'Email requis'
+      });
+    }
+
+    // Vérifier si l'utilisateur existe
+    const user = await User.findOne({ email });
+    if (!user) {
+      // Pour des raisons de sécurité, on renvoie un succès même si l'email n'existe pas
+      return res.json({
+        success: true,
+        message: 'Si cet email existe, un lien de réinitialisation a été envoyé'
+      });
+    }
+
+    // Générer un token unique
+    const token = crypto.randomBytes(32).toString('hex');
+    
+    // Sauvegarder le token
+    await PasswordReset.create({
+      email,
+      token,
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000) // 15 min
+    });
+
+    // Configurer le transporteur d'email
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: process.env.SMTP_PORT || 587,
+      secure: false,
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+      }
+    });
+
+    // Lien de réinitialisation
+    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${token}`;
+
+    // Envoyer l'email
+    await transporter.sendMail({
+      from: '"Laboges" <noreply@laboges.com>',
+      to: email,
+      subject: 'Réinitialisation de votre mot de passe',
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
+          <h2 style="color: #2563eb;">Laboges</h2>
+          <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
+          <p>Cliquez sur le lien ci-dessous pour créer un nouveau mot de passe :</p>
+          <a href="${resetLink}" style="display: inline-block; background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 20px 0;">
+            Réinitialiser mon mot de passe
+          </a>
+          <p style="color: #666; font-size: 14px;">Ce lien est valable 15 minutes.</p>
+          <p style="color: #666; font-size: 14px;">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
+        </div>
+      `
+    });
+
+    res.json({
+      success: true,
+      message: 'Un email de réinitialisation a été envoyé'
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur forgot-password:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de l\'envoi de l\'email'
+    });
+  }
+});
+
+// ===========================================
+// RÉINITIALISATION (POST /reset-password)
+// ===========================================
+router.post('/reset-password', async (req, res) => {
+  try {
+    const { token, newPassword } = req.body;
+
+    if (!token || !newPassword) {
+      return res.status(400).json({
+        success: false,
+        message: 'Token et nouveau mot de passe requis'
+      });
+    }
+
+    // Vérifier la longueur du mot de passe
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: 'Le mot de passe doit contenir au moins 6 caractères'
+      });
+    }
+
+    // Chercher le token
+    const resetRequest = await PasswordReset.findOne({
+      token,
+      utilisé: false,
+      expiresAt: { $gt: new Date() }
+    });
+
+    if (!resetRequest) {
+      return res.status(400).json({
+        success: false,
+        message: 'Lien invalide ou expiré'
+      });
+    }
+
+    // Trouver l'utilisateur
+    const user = await User.findOne({ email: resetRequest.email });
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Utilisateur non trouvé'
+      });
+    }
+
+    // Mettre à jour le mot de passe
+    user.password = newPassword;
+    await user.save();
+
+    // Marquer le token comme utilisé
+    resetRequest.utilisé = true;
+    await resetRequest.save();
+
+    res.json({
+      success: true,
+      message: 'Mot de passe réinitialisé avec succès'
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur reset-password:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la réinitialisation'
+    });
+  }
+});
+
+
 
 module.exports = router;

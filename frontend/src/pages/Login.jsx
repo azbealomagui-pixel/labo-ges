@@ -82,6 +82,13 @@ const Login = () => {
             Se connecter
           </Button>
 
+          {/*Dans Login.jsx, après le champ mot de passe*/} 
+          <div className="flex items-center justify-end mb-4">
+            <Link to="/forgot-password" className="text-sm text-primary-600 hover:text-primary-700">
+              Mot de passe oublié ?
+            </Link>
+          </div>
+
           {/* Lien d'inscription */}
           <p className="text-center text-sm text-gray-600 mt-6">
             Vous n'avez pas de compte ?{' '}
