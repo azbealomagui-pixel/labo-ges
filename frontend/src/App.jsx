@@ -25,6 +25,10 @@ import RapportForm from './pages/RapportForm';
 import Messagerie from './pages/Messagerie';
 import Abonnement from './pages/Abonnement';
 import InstallPWA from './components/InstallPWA';
+import Parametres from './pages/Parametres';
+
+
+
 // Providers
 import { SocketProvider } from './providers/SocketProvider';
 
@@ -161,6 +165,12 @@ function App() {
             <ProtectedRoute>
               <Abonnement />
             </ProtectedRoute>
+          } />
+
+          <Route path="/parametres" element={
+          <ProtectedRoute>
+            <Parametres />
+          </ProtectedRoute>
           } />
           
           {/* ===== ROUTE 404 ===== */}

@@ -1,11 +1,11 @@
 // ===========================================
 // PAGE: GestionMembres
 // RÔLE: Gérer les membres d'un espace
-// AVEC: Ajout, modification, rôles
-// VERSION: Sans warning ESLint
+// AVEC: Bouton retour et corrections ESLint
 // ===========================================
 
 import React, { useEffect, useState, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom'; // ← AJOUTER CET IMPORT
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
@@ -21,6 +21,7 @@ const ROLES = [
 ];
 
 const GestionMembres = () => {
+  const navigate = useNavigate(); // ← AJOUTER CETTE LIGNE
   const { user } = useAuth();
   const [membres, setMembres] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -149,6 +150,19 @@ const GestionMembres = () => {
     }
   };
 
+  // ===== SUPPRIMER DÉFINITIVEMENT (NON UTILISÉ POUR L'INSTANT) =====
+  // const handleDelete = async (userId) => {
+  //   if (!window.confirm('⚠️ Supprimer définitivement ce membre ? Cette action est irréversible.')) return;
+  //   try {
+  //     await api.delete(`/users/${userId}`);
+  //     toast.success('Membre supprimé');
+  //     fetchMembres();
+  //   } catch (error) {
+  //     console.error('Erreur suppression:', error);
+  //     toast.error('Erreur suppression');
+  //   }
+  // };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -161,6 +175,19 @@ const GestionMembres = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4">
         
+        {/* ===== BOUTON RETOUR ===== */}
+        <div className="mb-4">
+          <button
+            onClick={() => navigate('/dashboard')}
+            className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Retour au tableau de bord
+          </button>
+        </div>
+
         {/* En-tête */}
         <div className="flex justify-between items-center mb-8">
           <div>

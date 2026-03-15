@@ -40,7 +40,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: {
       values: [
-        'super_admin', 'admin_delegue', 'manager_labo',
+        'super_admin','admin', 'admin_delegue', 'manager_labo',
         'biologiste', 'technicien', 'secretaire', 'comptable', 'rh'
       ],
       message: 'Le rôle {VALUE} n\'est pas valide'

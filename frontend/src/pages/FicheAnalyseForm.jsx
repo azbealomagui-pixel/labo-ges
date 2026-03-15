@@ -5,7 +5,7 @@
 // ===========================================
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom'; // ← CORRIGÉ
+import { useNavigate, useLocation } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
@@ -21,7 +21,7 @@ const CURRENCIES = [
 
 const FicheAnalyseForm = () => {
   const navigate = useNavigate();
-  const location = useLocation(); // ← AJOUTÉ
+  const location = useLocation();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState([]);
@@ -476,7 +476,7 @@ const FicheAnalyseForm = () => {
             </div>
           </form>
 
-          {/* BOUTON PV FINAL */}
+          {/* ===== BOUTON PV FINAL ===== */}
           {ficheCreeeId && (
             <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
               <p className="text-green-700 mb-3 font-medium">✅ Fiche créée avec succès</p>
