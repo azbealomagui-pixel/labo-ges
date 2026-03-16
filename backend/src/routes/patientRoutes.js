@@ -148,7 +148,8 @@ router.get('/labo/:espaceId', authenticate, checkPermission('VIEW_PATIENTS'), as
     const { espaceId } = req.params;
     const { page = 1, limit = 50, search } = req.query;
 
-    const query = { espaceId };
+    // CORRECTION : Utilisez laboratoireId dans la requête (c'est le nom du champ dans la base)
+    const query = { laboratoireId: espaceId };
     
     if (search && search.length >= 2) {
       query.$or = [
@@ -196,7 +197,7 @@ router.get('/search', authenticate, checkPermission('VIEW_PATIENTS'), async (req
     }
     
     const patients = await Patient.find({
-      laboratoireId,
+      laboratoireId: espaceId,
       $or: [
         { nom: { $regex: q, $options: 'i' } },
         { prenom: { $regex: q, $options: 'i' } },
