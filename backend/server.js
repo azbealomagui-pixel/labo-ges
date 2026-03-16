@@ -53,7 +53,7 @@ app.use(limiter);
 // ===== 7. IMPORTER LES ROUTES =====
 const userRoutes = require('./src/routes/userRoutes');
 const laboratoireRoutes = require('./src/routes/laboratoireRoutes');
-const patientRoutes = require('./src/routes/patientRoutes');
+const patientRoutes = require('./src/routes/patientRoutes'); 
 const analyseRoutes = require('./src/routes/analyseRoutes');
 const devisRoutes = require('./src/routes/devisRoutes');
 const statsRoutes = require('./src/routes/statsRoutes');
@@ -62,7 +62,6 @@ const espaceRoutes = require('./src/routes/espaceRoutes');
 const rapportRoutes = require('./src/routes/rapportRoutes');
 const messageRoutes = require('./src/routes/messageRoutes');
 const abonnementRoutes = require('./src/routes/abonnementRoutes');
-const patientRoutes = require('./src/routes/patientRoutes');
 
 
 
