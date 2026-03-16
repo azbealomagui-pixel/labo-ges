@@ -156,7 +156,7 @@ const PatientForm = () => {
   };
 
   // ===== SOUMISSION DU FORMULAIRE =====
-  const handleSubmit = async (e) => {
+    const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!validateForm()) {
@@ -164,30 +164,30 @@ const PatientForm = () => {
       return;
     }
 
-
     setLoading(true);
 
     try {
       const dataToSend = {
         ...formData,
-        laboratoireId: user.espaceId,
+        laboratoireId: user.laboratoireId || user.espaceId,
         createdBy: user._id
       };
-
-      console.log('Donnéess envoyéess:', dataToSend);
-
+      
+      // IMPORTANT : Ne pas envoyer espaceId si le modèle ne l'attend pas
+      delete dataToSend.espaceId;
 
       if (id) {
         await api.put(`/patients/${id}`, dataToSend);
-        toast.success('Patient modifié avec succès');
+        toast.success('✅ Patient modifié avec succès');
       } else {
         await api.post('/patients', dataToSend);
-        toast.success('Patient créé avec succès');
+        toast.success('✅ Patient créé avec succès');
       }
       
       navigate('/patients');
     } catch (err) {
-      console.error('Erreur sauvegarde:', err);
+      console.error('❌ Erreur sauvegarde:', err);
+      console.error('📤 Données envoyées:', err.config?.data);
       toast.error(err.response?.data?.message || 'Erreur lors de la sauvegarde');
     } finally {
       setLoading(false);

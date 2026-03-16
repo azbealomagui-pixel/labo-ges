@@ -262,9 +262,18 @@ router.get('/:id', authenticate, checkPermission('VIEW_PATIENTS'), async (req, r
 // ===========================================
 router.put('/:id', authenticate, checkPermission('UPDATE_PATIENT'), async (req, res) => {
   try {
+    // Préparer les données à mettre à jour
+    const updates = { ...req.body };
+    
+    // CORRECTION : Si espaceId est envoyé mais que le modèle attend laboratoireId
+    if (updates.espaceId && !updates.laboratoireId) {
+      updates.laboratoireId = updates.espaceId;
+      delete updates.espaceId;
+    }
+    
     const patient = await Patient.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updates,
       { new: true, runValidators: true }
     );
     
@@ -277,7 +286,7 @@ router.put('/:id', authenticate, checkPermission('UPDATE_PATIENT'), async (req, 
 
     // Journalisation
     await AuditLog.create({
-      espaceId: patient.espaceId,
+      espaceId: patient.laboratoireId,
       utilisateurId: req.user._id,
       action: 'UPDATE_PATIENT',
       cible: {
