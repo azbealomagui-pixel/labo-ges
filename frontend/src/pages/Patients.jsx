@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: Patients
 // RÔLE: Liste, recherche et gestion des patients
-// VERSION: UX améliorée avec modale et messages explicites
+// VERSION: Corrigée avec espaceId au lieu de laboratoireId
 // ===========================================
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -11,8 +11,6 @@ import api from '../services/api';
 import useAuth from '../hooks/useAuth';
 import { genererPDFPatient } from '../utils/pdfGenerator';
 import { exportToExcel } from '../utils/excelGenerator';
-
-// Import des icônes
 import { IconSearch, IconAdd, IconEdit, IconDelete } from '../assets';
 
 const Patients = () => {
@@ -24,7 +22,7 @@ const Patients = () => {
   const [filteredPatients, setFilteredPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [laboratoire, setLaboratoire] = useState(null);
+  const [espace, setEspace] = useState(null); // Renommé de laboratoire à espace
 
   // ===== ÉTAT POUR LA MODALE DE SUPPRESSION =====
   const [deleteModal, setDeleteModal] = useState({
@@ -37,7 +35,8 @@ const Patients = () => {
   const fetchAllPatients = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get(`/patients/labo/${user.laboratoireId}`);
+      // CHANGEMENT : laboratoireId → espaceId
+      const response = await api.get(`/patients/labo/${user.espaceId}`);
       const data = response.data.patients || [];
       setPatients(data);
       setFilteredPatients(data);
@@ -50,22 +49,23 @@ const Patients = () => {
     } finally {
       setLoading(false);
     }
-  }, [user.laboratoireId]);
+  }, [user.espaceId]); // CHANGEMENT : dépendance
 
-  // ===== CHARGEMENT DU LABORATOIRE =====
+  // ===== CHARGEMENT DE L'ESPACE (anciennement laboratoire) =====
   useEffect(() => {
-    const fetchLabo = async () => {
+    const fetchEspace = async () => {
       try {
-        const response = await api.get(`/laboratoires/${user.laboratoireId}`);
-        setLaboratoire(response.data.laboratoire);
+        // CHANGEMENT : /laboratoires → /espaces
+        const response = await api.get(`/espaces/${user.espaceId}`);
+        setEspace(response.data.espace);
       } catch (error) {
-        console.error('❌ Erreur chargement labo:', error.message);
+        console.error('❌ Erreur chargement espace:', error.message);
       }
     };
-    if (user?.laboratoireId) {
-      fetchLabo();
+    if (user?.espaceId) {
+      fetchEspace();
     }
-  }, [user?.laboratoireId]);
+  }, [user?.espaceId]); // CHANGEMENT : dépendance
 
   // ===== CHARGEMENT INITIAL =====
   useEffect(() => {
@@ -171,7 +171,8 @@ const Patients = () => {
   // ===== GÉNÉRATION PDF =====
   const handleOpenPDF = async (patient) => {
     try {
-      const doc = await genererPDFPatient(patient, laboratoire);
+      // CHANGEMENT : laboratoire → espace (mais le paramètre s'appelle encore laboratoire dans la fonction)
+      const doc = await genererPDFPatient(patient, espace);
       if (doc) {
         const url = URL.createObjectURL(doc.output('blob'));
         window.open(url, '_blank');
@@ -185,7 +186,7 @@ const Patients = () => {
 
   const handleDownloadPDF = async (patient) => {
     try {
-      const doc = await genererPDFPatient(patient, laboratoire);
+      const doc = await genererPDFPatient(patient, espace);
       if (doc) {
         doc.save(`patient-${patient.nom}-${patient.prenom}.pdf`);
         toast.success(`📄 PDF téléchargé : ${patient.prenom} ${patient.nom}`);
