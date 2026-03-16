@@ -246,6 +246,9 @@ const AnalyseForm = () => {
       return;
     }
 
+
+
+
     // Utilisation de validateForm
     if (!validateForm()) {
       toast.error('Veuillez corriger les erreurs dans le formulaire');
@@ -264,6 +267,19 @@ const AnalyseForm = () => {
         laboratoireId: user.laboratoireId || user.espaceId,
         createdBy: user._id
       };
+
+
+
+      console.log('👤 Utilisateur connecté:', {
+        id: user?._id,
+        laboratoireId: user?.laboratoireId,
+        espaceId: user?.espaceId
+      });
+
+      console.log('📦 Données complètes envoyées:', dataToSend);
+
+
+
 
       console.log('📦 Données envoyées:', dataToSend);
 

@@ -3,6 +3,8 @@ import axios from 'axios';
 // Utilise la variable d'environnement VITE_API_URL si elle existe, sinon localhost
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
 
+console.log('🚀 API URL utilisée:', API_URL); 
+
 const api = axios.create({
   baseURL: API_URL,
   headers: {
