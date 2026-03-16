@@ -164,6 +164,14 @@ const PatientForm = () => {
       return;
     }
 
+
+
+        // Ligne ~90, dans handleSubmit, avant le try
+    console.log('🚀 Données envoyées au backend:', {
+      ...formData,
+      laboratoireId: user.laboratoireId,
+      createdBy: user._id});
+
     setLoading(true);
 
     try {
