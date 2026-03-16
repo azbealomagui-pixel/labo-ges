@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: Patients
 // RÔLE: Liste, recherche et gestion des patients
-// AVEC: Recherche instantanée, PDF, Excel
+// VERSION: UX améliorée avec modale et messages explicites
 // ===========================================
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -26,6 +26,13 @@ const Patients = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [laboratoire, setLaboratoire] = useState(null);
 
+  // ===== ÉTAT POUR LA MODALE DE SUPPRESSION =====
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    patientId: null,
+    patientNom: ''
+  });
+
   // ===== CHARGEMENT DES PATIENTS =====
   const fetchAllPatients = useCallback(async () => {
     try {
@@ -35,12 +42,11 @@ const Patients = () => {
       setPatients(data);
       setFilteredPatients(data);
     } catch (error) {
-      console.error('Erreur chargement patients:', {
+      console.error('❌ Erreur chargement patients:', {
         message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
+        status: error.response?.status
       });
-      toast.error('Impossible de charger la liste des patients');
+      toast.error('Impossible de charger la liste des patients. Vérifiez votre connexion.');
     } finally {
       setLoading(false);
     }
@@ -53,7 +59,7 @@ const Patients = () => {
         const response = await api.get(`/laboratoires/${user.laboratoireId}`);
         setLaboratoire(response.data.laboratoire);
       } catch (error) {
-        console.error('Erreur chargement labo:', error.message);
+        console.error('❌ Erreur chargement labo:', error.message);
       }
     };
     if (user?.laboratoireId) {
@@ -79,7 +85,7 @@ const Patients = () => {
         setFilteredPatients(filtered);
         
         if (filtered.length === 0) {
-          toast.info('Aucun patient trouvé pour cette recherche', { autoClose: 2000 });
+          toast.info(`🔍 Aucun patient trouvé pour "${searchTerm}"`, { autoClose: 2000 });
         }
       } else {
         setFilteredPatients(patients);
@@ -89,17 +95,22 @@ const Patients = () => {
     return () => clearTimeout(timer);
   }, [searchTerm, patients]);
 
-  // ===== SUPPRESSION =====
-  const handleDelete = async (id) => {
-    if (!window.confirm('Êtes-vous sûr de vouloir supprimer ce patient ? Cette action est réversible.')) {
-      return;
-    }
-    
+  // ===== OUVRIR LA MODALE DE SUPPRESSION =====
+  const openDeleteModal = (id, nom, prenom) => {
+    setDeleteModal({
+      isOpen: true,
+      patientId: id,
+      patientNom: `${prenom} ${nom}`
+    });
+  };
+
+  // ===== SUPPRIMER UN PATIENT =====
+  const handleConfirmDelete = async () => {
     try {
-      await api.delete(`/patients/${id}`);
-      toast.success('Patient supprimé avec succès');
+      await api.delete(`/patients/${deleteModal.patientId}`);
+      toast.success(`🗑️ ${deleteModal.patientNom} a été supprimé`);
       
-      const updatedPatients = patients.filter(p => p._id !== id);
+      const updatedPatients = patients.filter(p => p._id !== deleteModal.patientId);
       setPatients(updatedPatients);
       
       if (searchTerm.length >= 2) {
@@ -113,12 +124,79 @@ const Patients = () => {
         setFilteredPatients(updatedPatients);
       }
       
+      setDeleteModal({ isOpen: false, patientId: null, patientNom: '' });
+      
     } catch (error) {
-      console.error('Erreur suppression:', error.message);
-      toast.error(error.response?.data?.message || 'Erreur lors de la suppression');
+      console.error('❌ Erreur suppression:', error.message);
+      toast.error(error.response?.data?.message || '❌ Échec de la suppression. Veuillez réessayer.');
     }
   };
 
+  // ===== EXPORT EXCEL =====
+  const handleExportExcel = () => {
+    try {
+      const patientsAExporter = filteredPatients.map(p => ({
+        nom: p.nom,
+        prenom: p.prenom,
+        email: p.email || '',
+        telephone: p.telephone,
+        adresse: p.adresse,
+        dateNaissance: new Date(p.dateNaissance).toLocaleDateString('fr-FR'),
+        sexe: p.sexe === 'M' ? 'Masculin' : p.sexe === 'F' ? 'Féminin' : p.sexe,
+        groupeSanguin: p.groupeSanguin || '',
+        numeroSecuriteSociale: p.numeroSecuriteSociale || '',
+        observations: p.observations || ''
+      }));
+
+      exportToExcel(patientsAExporter, `patients-${new Date().toISOString().split('T')[0]}`, {
+        nom: 'Nom',
+        prenom: 'Prénom',
+        email: 'Email',
+        telephone: 'Téléphone',
+        adresse: 'Adresse',
+        dateNaissance: 'Date naissance',
+        sexe: 'Sexe',
+        groupeSanguin: 'Groupe sanguin',
+        numeroSecuriteSociale: 'N° Sécurité Sociale',
+        observations: 'Observations'
+      });
+      
+      toast.success(`📊 ${patientsAExporter.length} patient(s) exportés avec succès`);
+    } catch (error) {
+      console.error('❌ Erreur Excel:', error.message);
+      toast.error('❌ Erreur lors de l\'export Excel');
+    }
+  };
+
+  // ===== GÉNÉRATION PDF =====
+  const handleOpenPDF = async (patient) => {
+    try {
+      const doc = await genererPDFPatient(patient, laboratoire);
+      if (doc) {
+        const url = URL.createObjectURL(doc.output('blob'));
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      }
+    } catch (error) {
+      console.error('❌ Erreur PDF:', error.message);
+      toast.error('❌ Erreur lors de la génération du PDF');
+    }
+  };
+
+  const handleDownloadPDF = async (patient) => {
+    try {
+      const doc = await genererPDFPatient(patient, laboratoire);
+      if (doc) {
+        doc.save(`patient-${patient.nom}-${patient.prenom}.pdf`);
+        toast.success(`📄 PDF téléchargé : ${patient.prenom} ${patient.nom}`);
+      }
+    } catch (error) {
+      console.error('❌ Erreur PDF:', error.message);
+      toast.error('❌ Erreur lors du téléchargement du PDF');
+    }
+  };
+
+  // ===== AFFICHAGE DU LOADER =====
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
@@ -134,7 +212,7 @@ const Patients = () => {
     <div className="min-h-screen bg-gray-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
-        {/* Bouton retour */}
+        {/* ===== BOUTON RETOUR ===== */}
         <div className="mb-4">
           <button
             onClick={() => navigate('/dashboard')}
@@ -147,7 +225,7 @@ const Patients = () => {
           </button>
         </div>
 
-        {/* En-tête */}
+        {/* ===== EN-TÊTE ===== */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
@@ -159,41 +237,9 @@ const Patients = () => {
           </div>
           
           <div className="flex gap-4">
-            {/* Bouton Excel global */}
+            {/* Bouton Excel */}
             <button
-              onClick={() => {
-                try {
-                  const patientsAExporter = filteredPatients.map(p => ({
-                    nom: p.nom,
-                    prenom: p.prenom,
-                    email: p.email || '',
-                    telephone: p.telephone,
-                    adresse: p.adresse,
-                    dateNaissance: new Date(p.dateNaissance).toLocaleDateString('fr-FR'),
-                    sexe: p.sexe,
-                    groupeSanguin: p.groupeSanguin || '',
-                    numeroSecuriteSociale: p.numeroSecuriteSociale || '',
-                    observations: p.observations || ''
-                  }));
-
-                  exportToExcel(patientsAExporter, `patients-${new Date().toISOString().split('T')[0]}`, {
-                    nom: 'Nom',
-                    prenom: 'Prénom',
-                    email: 'Email',
-                    telephone: 'Téléphone',
-                    adresse: 'Adresse',
-                    dateNaissance: 'Date naissance',
-                    sexe: 'Sexe',
-                    groupeSanguin: 'Groupe sanguin',
-                    numeroSecuriteSociale: 'N° Sécurité Sociale',
-                    observations: 'Observations'
-                  });
-                  toast.success(`${patientsAExporter.length} patients exportés`);
-                } catch (error) {
-                  console.error('Erreur Excel:', error.message);
-                  toast.error('Erreur génération Excel');
-                }
-              }}
+              onClick={handleExportExcel}
               className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors shadow-lg hover:shadow-xl"
               title="Exporter tous les patients"
             >
@@ -213,7 +259,7 @@ const Patients = () => {
           </div>
         </div>
 
-        {/* Barre de recherche */}
+        {/* ===== BARRE DE RECHERCHE ===== */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8">
           <div className="flex flex-col gap-4">
             <div className="flex-1 relative">
@@ -238,7 +284,7 @@ const Patients = () => {
           </div>
         </div>
 
-        {/* Tableau */}
+        {/* ===== TABLEAU DES PATIENTS ===== */}
         <div className="bg-white rounded-xl shadow-lg overflow-hidden">
           {filteredPatients.length === 0 ? (
             <div className="text-center py-16 px-4">
@@ -270,16 +316,16 @@ const Patients = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Sécurité Sociale</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Sécurité Sociale</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {filteredPatients.map((patient) => (
                     <tr key={patient._id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm font-medium text-gray-900">
                           {patient.nom} {patient.prenom}
                         </div>
@@ -288,45 +334,33 @@ const Patients = () => {
                             day: '2-digit',
                             month: '2-digit',
                             year: 'numeric'
-                          })} • {patient.sexe}
+                          })} • {patient.sexe === 'M' ? 'Homme' : patient.sexe === 'F' ? 'Femme' : patient.sexe}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{patient.telephone}</div>
                         {patient.email && <div className="text-sm text-gray-500">{patient.email}</div>}
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          {patient.numeroSecuriteSociale || '-'}
+                          {patient.numeroSecuriteSociale || '—'}
                         </div>
                       </td>
-                      <td className="px-6 py-4">
+                      <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex gap-2">
                           {/* Modifier */}
                           <button
                             onClick={() => navigate(`/patients/${patient._id}`)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                             title="Modifier"
                           >
-                            <img src={IconEdit} alt="" className="w-5 h-5" />
+                            <img src={IconEdit} alt="Modifier" className="w-5 h-5" />
                           </button>
 
                           {/* PDF Ouvrir */}
                           <button
-                            onClick={async () => {
-                              try {
-                                const doc = await genererPDFPatient(patient, laboratoire);
-                                if (doc) {
-                                  const url = URL.createObjectURL(doc.output('blob'));
-                                  window.open(url, '_blank');
-                                  setTimeout(() => URL.revokeObjectURL(url), 1000);
-                                }
-                              } catch (error) {
-                                console.error('Erreur PDF:', error.message);
-                                toast.error('Erreur génération PDF');
-                              }
-                            }}
-                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg"
+                            onClick={() => handleOpenPDF(patient)}
+                            className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
                             title="Ouvrir PDF"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -336,16 +370,8 @@ const Patients = () => {
 
                           {/* PDF Télécharger */}
                           <button
-                            onClick={async () => {
-                              try {
-                                const doc = await genererPDFPatient(patient, laboratoire);
-                                if (doc) doc.save(`patient-${patient.nom}-${patient.prenom}.pdf`);
-                              } catch (error) {
-                                console.error('Erreur PDF:', error.message);
-                                toast.error('Erreur téléchargement PDF');
-                              }
-                            }}
-                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg"
+                            onClick={() => handleDownloadPDF(patient)}
+                            className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                             title="Télécharger PDF"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -356,7 +382,7 @@ const Patients = () => {
                           {/* Nouvelle fiche d'analyses */}
                           <button
                             onClick={() => navigate(`/fiche-analyses/new?patientId=${patient._id}`)}
-                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg"
+                            className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
                             title="Nouvelle fiche d'analyses"
                           >
                             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -366,11 +392,11 @@ const Patients = () => {
 
                           {/* Supprimer */}
                           <button
-                            onClick={() => handleDelete(patient._id)}
-                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg"
+                            onClick={() => openDeleteModal(patient._id, patient.nom, patient.prenom)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             title="Supprimer"
                           >
-                            <img src={IconDelete} alt="" className="w-5 h-5" />
+                            <img src={IconDelete} alt="Supprimer" className="w-5 h-5" />
                           </button>
                         </div>
                       </td>
@@ -381,6 +407,41 @@ const Patients = () => {
             </div>
           )}
         </div>
+
+        {/* ===== MODALE DE CONFIRMATION DE SUPPRESSION ===== */}
+        {deleteModal.isOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-fade-in">
+              <div className="flex items-center gap-3 text-red-600 mb-4">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <h2 className="text-xl font-bold text-gray-900">Confirmation</h2>
+              </div>
+              
+              <p className="text-gray-700 mb-6">
+                Êtes-vous sûr de vouloir supprimer <span className="font-semibold">{deleteModal.patientNom}</span> ?
+                <br />
+                <span className="text-sm text-red-500 mt-2 inline-block">⚠️ Cette action est irréversible.</span>
+              </p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  Oui, supprimer
+                </button>
+                <button
+                  onClick={() => setDeleteModal({ isOpen: false, patientId: null, patientNom: '' })}
+                  className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

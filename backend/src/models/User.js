@@ -61,6 +61,39 @@ const userSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
+
+  // Dans le schéma, après le champ 'poste'
+  permissions: {
+    type: [String],
+    default: [],
+    enum: [
+      'VIEW_USERS', 'CREATE_USER', 'UPDATE_USER', 'DELETE_USER',
+      'VIEW_PATIENTS', 'CREATE_PATIENT', 'UPDATE_PATIENT', 'DELETE_PATIENT',
+      'VIEW_ANALYSES', 'CREATE_ANALYSE', 'UPDATE_ANALYSE', 'DELETE_ANALYSE',
+      'VIEW_DEVIS', 'CREATE_DEVIS', 'VALIDATE_DEVIS',
+      'VIEW_RAPPORTS', 'VALIDATE_RAPPORT',
+      'VIEW_FINANCES',
+      'VIEW_SETTINGS', 'UPDATE_SETTINGS',
+      'DELEGATE'
+    ]
+  },
+
+  deleguePar: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    default: null
+  },
+
+  dateDebutDelegation: {
+    type: Date,
+    default: null
+  },
+
+  dateFinDelegation: {
+    type: Date,
+    default: null
+  },
+
   laboratoireId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Laboratoire',

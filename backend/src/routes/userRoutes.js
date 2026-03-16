@@ -1,7 +1,7 @@
 // ===========================================
 // FICHIER: src/routes/userRoutes.js
 // RÔLE: Routes pour la gestion des utilisateurs
-// VERSION: Finale avec inscription, login et CRUD
+// VERSION: Avec journalisation (AuditLog)
 // ===========================================
 
 const express = require('express');
@@ -11,13 +11,15 @@ const User = require('../models/User');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const PasswordReset = require('../models/PasswordReset');
+const AuditLog = require('../models/AuditLog'); // ← NOUVEAU
+const { checkPermission } = require('../middleware/checkPermission'); // ← NOUVEAU
 const router = express.Router();
 
 
 // ===========================================
 // CRÉER UN UTILISATEUR (POST)
 // ===========================================
-router.post('/', async (req, res) => {
+router.post('/', checkPermission('CREATE_USER'), async (req, res) => {
   try {
     // Log de débogage (à supprimer en production)
     console.log('=== REQUÊTE REÇUE ===');
@@ -70,6 +72,21 @@ router.post('/', async (req, res) => {
     const newUser = new User(userData);
     await newUser.save();
     
+    // ===== JOURNALISATION =====
+    await AuditLog.create({
+      espaceId: req.user?.espaceId || userData.laboratoireId,
+      utilisateurId: req.user?._id || newUser._id,
+      action: 'CREATE_USER',
+      cible: {
+        type: 'User',
+        id: newUser._id,
+        nom: `${newUser.prenom} ${newUser.nom}`
+      },
+      details: { role: newUser.role },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+    
     // Réponse sans mot de passe
     const userResponse = newUser.toObject();
     delete userResponse.password;
@@ -104,7 +121,7 @@ router.post('/', async (req, res) => {
 // ===========================================
 // LISTER TOUS LES UTILISATEURS (GET)
 // ===========================================
-router.get('/', async (req, res) => {
+router.get('/', checkPermission('VIEW_USERS'), async (req, res) => {
   try {
     const users = await User.find()
       .select('-password')
@@ -127,7 +144,7 @@ router.get('/', async (req, res) => {
 // ===========================================
 // OBTENIR UN UTILISATEUR PAR ID (GET)
 // ===========================================
-router.get('/:id', async (req, res) => {
+router.get('/:id', checkPermission('VIEW_USERS'), async (req, res) => {
   try {
     const user = await User.findById(req.params.id).select('-password');
     
@@ -324,7 +341,7 @@ router.post('/login', async (req, res) => {
 // ===========================================
 // METTRE À JOUR UN UTILISATEUR (PUT)
 // ===========================================
-router.put('/:id', async (req, res) => {
+router.put('/:id', checkPermission('UPDATE_USER'), async (req, res) => {
   try {
     // Empêcher la modification du mot de passe via cette route
     const updates = { ...req.body };
@@ -345,6 +362,21 @@ router.put('/:id', async (req, res) => {
       });
     }
 
+    // ===== JOURNALISATION =====
+    await AuditLog.create({
+      espaceId: req.user.espaceId,
+      utilisateurId: req.user._id,
+      action: 'UPDATE_USER',
+      cible: {
+        type: 'User',
+        id: user._id,
+        nom: `${user.prenom} ${user.nom}`
+      },
+      details: updates,
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
     res.json({
       success: true,
       message: 'Utilisateur mis à jour',
@@ -362,7 +394,7 @@ router.put('/:id', async (req, res) => {
 // ===========================================
 // SUPPRIMER (DÉSACTIVER) UN UTILISATEUR (DELETE)
 // ===========================================
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', checkPermission('DELETE_USER'), async (req, res) => {
   try {
     const user = await User.findByIdAndUpdate(
       req.params.id,
@@ -376,6 +408,21 @@ router.delete('/:id', async (req, res) => {
         message: 'Utilisateur non trouvé'
       });
     }
+
+    // ===== JOURNALISATION =====
+    await AuditLog.create({
+      espaceId: req.user.espaceId,
+      utilisateurId: req.user._id,
+      action: 'DELETE_USER',
+      cible: {
+        type: 'User',
+        id: user._id,
+        nom: `${user.prenom} ${user.nom}`
+      },
+      details: { actif: false },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
 
     res.json({
       success: true,
@@ -537,7 +584,5 @@ router.post('/reset-password', async (req, res) => {
     });
   }
 });
-
-
 
 module.exports = router;

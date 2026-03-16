@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: GestionMembres
 // RÔLE: Gérer les membres d'un espace
-// VERSION: UX améliorée avec modale et messages explicites
+// VERSION: Avec permissions et délégation
 // ===========================================
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
+import PermissionModal from '../components/PermissionModal';
 import { IconAdd, IconEdit, IconDelete } from '../assets';
 
 const ROLES = [
@@ -36,11 +37,16 @@ const GestionMembres = () => {
   });
   const [errors, setErrors] = useState({});
 
-  // ===== ÉTAT POUR LA MODALE DE SUPPRESSION =====
+  // ===== ÉTATS POUR LES MODALES =====
   const [deleteModal, setDeleteModal] = useState({
     isOpen: false,
     membreId: null,
     membreNom: ''
+  });
+
+  const [permissionModal, setPermissionModal] = useState({
+    isOpen: false,
+    membre: null
   });
 
   // ===== CHARGER LES MEMBRES =====
@@ -164,7 +170,7 @@ const GestionMembres = () => {
     }
   };
 
-  // ===== OUVRIR LA MODALE DE SUPPRESSION =====
+  // ===== GESTION DES MODALES =====
   const openDeleteModal = (id, nom, prenom) => {
     setDeleteModal({
       isOpen: true,
@@ -173,7 +179,13 @@ const GestionMembres = () => {
     });
   };
 
-  // ===== SUPPRIMER DÉFINITIVEMENT =====
+  const openPermissionModal = (membre) => {
+    setPermissionModal({
+      isOpen: true,
+      membre
+    });
+  };
+
   const handleConfirmDelete = async () => {
     try {
       await api.delete(`/users/${deleteModal.membreId}`);
@@ -373,6 +385,11 @@ const GestionMembres = () => {
                           👑 Propriétaire
                         </span>
                       )}
+                      {m.deleguePar && new Date(m.dateFinDelegation) > new Date() && (
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1 ml-1">
+                          🤝 Délégué
+                        </span>
+                      )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{m.email}</td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -402,6 +419,18 @@ const GestionMembres = () => {
                       <div className="flex justify-center gap-2">
                         {!m.estProprietaire && (
                           <>
+                            {/* Bouton Permissions */}
+                            <button
+                              onClick={() => openPermissionModal(m)}
+                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
+                              title="Gérer les permissions"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                              </svg>
+                            </button>
+
+                            {/* Bouton Activer/Désactiver */}
                             <button
                               onClick={() => handleToggleActif(m._id, m.actif, m.prenom, m.nom)}
                               className={`p-2 rounded-lg transition-colors ${
@@ -413,6 +442,8 @@ const GestionMembres = () => {
                             >
                               {m.actif ? '🔴' : '🟢'}
                             </button>
+
+                            {/* Bouton Supprimer */}
                             <button
                               onClick={() => openDeleteModal(m._id, m.nom, m.prenom)}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -465,6 +496,15 @@ const GestionMembres = () => {
             </div>
           </div>
         )}
+
+        {/* ===== MODALE DES PERMISSIONS ===== */}
+        <PermissionModal
+          isOpen={permissionModal.isOpen}
+          onClose={() => setPermissionModal({ isOpen: false, membre: null })}
+          membre={permissionModal.membre}
+          espaceId={user.espaceId}
+          onUpdate={fetchMembres}
+        />
       </div>
     </div>
   );
