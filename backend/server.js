@@ -1,7 +1,7 @@
-// ===========================================
+//===========================================
 // FICHIER: backend/server.js
 // RÔLE: Point d'entrée principal du serveur
-// VERSION: Ultra-stable (sans erreur stack)
+// VERSION: Finale avec Socket.IO intégré
 // ===========================================
 
 // ===== 1. IMPORTER LES MODULES =====
@@ -25,15 +25,12 @@ const PORT = process.env.PORT || 5000;
 // ===== 5. MIDDLEWARES GLOBAUX =====
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(cors({
-  origin: process.env.FRONTEND_URL || '*',
-  credentials: true
-}));
+app.use(cors());
 
 // ===== 6. CONFIGURATION DU RATE LIMITING =====
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requêtes par IP
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: {
     success: false,
     message: 'Trop de requêtes, veuillez réessayer plus tard'
@@ -43,15 +40,14 @@ const limiter = rateLimit({
 });
 
 const authLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 heure
-  max: 5, // 5 tentatives max
+  windowMs: 60 * 60 * 1000,
+  max: 5,
   message: {
     success: false,
     message: 'Trop de tentatives, compte temporairement bloqué'
   }
 });
 
-// Appliquer le rate limiting global
 app.use(limiter);
 
 // ===== 7. IMPORTER LES ROUTES =====
@@ -66,6 +62,9 @@ const espaceRoutes = require('./src/routes/espaceRoutes');
 const rapportRoutes = require('./src/routes/rapportRoutes');
 const messageRoutes = require('./src/routes/messageRoutes');
 const abonnementRoutes = require('./src/routes/abonnementRoutes');
+const patientRoutes = require('./src/routes/patientRoutes');
+
+
 
 // ===== 8. APPLIQUER LE RATE LIMITING STRICT =====
 app.use('/api/users/login', authLimiter);
@@ -83,14 +82,18 @@ app.use('/api/espaces', espaceRoutes);
 app.use('/api/rapports', rapportRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/abonnements', abonnementRoutes);
+app.use('/api/patients', patientRoutes);
+
+
+
 
 // ===== 10. ROUTES DE TEST =====
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'API Labo-ges',
+    message: 'API LaboGest',
     version: '1.0.0',
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toLocaleString()
   });
 });
 
@@ -98,7 +101,7 @@ app.get('/api/test', (req, res) => {
   res.json({
     success: true,
     message: 'Connexion à l\'API réussie',
-    date: new Date().toISOString()
+    date: new Date().toLocaleString()
   });
 });
 
@@ -108,14 +111,16 @@ const server = http.createServer(app);
 // ===== 12. CONFIGURER SOCKET.IO =====
 const io = socketIo(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || '*',
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
     methods: ['GET', 'POST'],
     credentials: true
   }
 });
 
+// Rendre io accessible dans les routes via app
 app.set('io', io);
 
+// Gestion des connexions Socket.IO
 io.on('connection', (socket) => {
   console.log('🔌 Nouvelle connexion socket:', socket.id);
 
@@ -129,71 +134,41 @@ io.on('connection', (socket) => {
   });
 });
 
-// ===== 13. MIDDLEWARE DE GESTION DES ERREURS =====
-app.use((err, req, res, next) => {
-  console.error('❌ Erreur:', err.message);
-  
-  if (err.name === 'UnauthorizedError') {
-    return res.status(401).json({
-      success: false,
-      message: 'Token invalide ou expiré'
-    });
-  }
-
-  res.status(500).json({
-    success: false,
-    message: 'Erreur interne du serveur'
-  });
-});
-
-// ===== 14. CONNEXION À MONGODB ATLAS =====
-console.log('🔄 Connexion MongoDB...');
+// ===== 13. CONNEXION À MONGODB ATLAS =====
+console.log('🔄 Tentative de connexion à MongoDB Atlas...');
 
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
-    console.log('✅ MongoDB connecté');
+    console.log('✅ CONNEXION MONGODB ATLAS RÉUSSIE !');
+    console.log(`📊 Base de données: laboratoire`);
     
-    // DÉMARRER LE SERVEUR APRÈS LA CONNEXION RÉUSSIE
-    server.listen(PORT, '0.0.0.0', () => {
+    // Démarrer le serveur
+    server.listen(PORT, () => {
       console.log('═══════════════════════════════════════════');
-      console.log(`🚀 SERVEUR PRÊT`);
-      console.log(`📡 Port: ${PORT}`);
+      console.log(`🚀 SERVEUR DÉMARRÉ AVEC SUCCÈS !`);
+      console.log(`📡 URL: http://localhost:${PORT}`);
       console.log(`🔧 Mode: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`⏱️  ${new Date().toISOString()}`);
+      console.log(`⏱️  ${new Date().toLocaleString()}`);
       console.log('═══════════════════════════════════════════');
     });
   })
   .catch((error) => {
-    console.error('❌ MongoDB erreur:', error.message);
-    console.error('💡 Vérifiez votre MONGODB_URI');
+    console.log('❌ ERREUR DE CONNEXION MONGODB ATLAS');
+    console.log('📝 Détail:', error.message);
+    console.log('💡 Vérifiez que:');
+    console.log('   1. Le mot de passe dans .env est correct');
+    console.log('   2. Votre IP est autorisée dans MongoDB Atlas');
+    console.log('   3. L\'URL est bien copiée');
     process.exit(1);
   });
 
-// ===== 15. GESTION DES ERREURS NON CAPTURÉES =====
+// ===== 14. GESTION DES ERREURS NON CAPTURÉES =====
 process.on('uncaughtException', (error) => {
-  console.error('🔥 Exception non capturée:', error.message);
+  console.error('🔥 Erreur non capturée:', error);
   process.exit(1);
 });
 
 process.on('unhandledRejection', (error) => {
-  console.error('🔥 Rejet non géré:', error.message);
+  console.error('🔥 Promise non gérée:', error);
   process.exit(1);
-});
-
-// ===== 16. ARRÊT GRACIEUX =====
-process.on('SIGTERM', () => {
-  console.log('🛑 SIGTERM reçu');
-  server.close(() => {
-    mongoose.connection.close();
-    console.log('✅ Arrêt terminé');
-  });
-});
-
-process.on('SIGINT', () => {
-  console.log('🛑 SIGINT reçu');
-  server.close(() => {
-    mongoose.connection.close();
-    console.log('✅ Arrêt terminé');
-    process.exit(0);
-  });
 });
