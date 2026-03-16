@@ -165,21 +165,17 @@ const PatientForm = () => {
     }
 
 
-
-        // Ligne ~90, dans handleSubmit, avant le try
-    console.log('🚀 Données envoyées au backend:', {
-      ...formData,
-      laboratoireId: user.laboratoireId,
-      createdBy: user._id});
-
     setLoading(true);
 
     try {
       const dataToSend = {
         ...formData,
-        laboratoireId: user.laboratoireId,
+        laboratoireId: user.espaceId,
         createdBy: user._id
       };
+
+      console.log('Donnéess envoyéess:', dataToSend);
+
 
       if (id) {
         await api.put(`/patients/${id}`, dataToSend);
