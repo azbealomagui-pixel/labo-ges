@@ -1,13 +1,13 @@
 // ===========================================
 // FICHIER: src/routes/patientRoutes.js
 // RÔLE: Routes pour la gestion des patients
-// VERSION: Avec authentification, permissions et journalisation
+// VERSION: Accepte laboratoireId OU espaceId
 // ===========================================
 
 const express = require('express');
 const Patient = require('../models/Patient');
 const AuditLog = require('../models/AuditLog');
-const { authenticate } = require('../middleware/auth'); // ← AJOUT OBLIGATOIRE
+const { authenticate } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/checkPermission');
 const router = express.Router();
 
@@ -21,11 +21,14 @@ router.post('/', authenticate, checkPermission('CREATE_PATIENT'), async (req, re
       telephone, email, adresse,
       numeroSecuriteSociale, groupeSanguin,
       allergies, observations,
-      laboratoireId
+      laboratoireId, espaceId
     } = req.body;
     
     // L'utilisateur authentifié devient le créateur
     const createdBy = req.user._id;
+
+    // === SOLUTION : Accepter laboratoireId OU espaceId ===
+    const espace = laboratoireId || espaceId;
 
     // === VALIDATION ===
     const missingFields = [];
@@ -35,7 +38,7 @@ router.post('/', authenticate, checkPermission('CREATE_PATIENT'), async (req, re
     if (!sexe) missingFields.push('sexe');
     if (!telephone?.trim()) missingFields.push('telephone');
     if (!adresse?.trim()) missingFields.push('adresse');
-    if (!laboratoireId) missingFields.push('laboratoireId');
+    if (!espace) missingFields.push('laboratoireId ou espaceId');
 
     if (missingFields.length > 0) {
       return res.status(400).json({
@@ -69,7 +72,7 @@ router.post('/', authenticate, checkPermission('CREATE_PATIENT'), async (req, re
       });
     }
     
-    // Création du patient
+    // Création du patient (avec espace au lieu de laboratoireId)
     const newPatient = new Patient({
       nom: nom.trim(),
       prenom: prenom.trim(),
@@ -82,15 +85,15 @@ router.post('/', authenticate, checkPermission('CREATE_PATIENT'), async (req, re
       groupeSanguin: groupeSanguin || 'Inconnu',
       allergies: allergies || [],
       observations: observations?.trim() || '',
-      laboratoireId,
+      laboratoireId: espace,
       createdBy
     });
     
     await newPatient.save();
 
-    // Journalisation
+    // Journalisation (utilise espace pour AuditLog)
     await AuditLog.create({
-      espaceId: laboratoireId,
+      espaceId: espace,
       utilisateurId: createdBy,
       action: 'CREATE_PATIENT',
       cible: {
