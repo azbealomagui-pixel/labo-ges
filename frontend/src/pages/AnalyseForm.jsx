@@ -236,33 +236,54 @@ const AnalyseForm = () => {
     };
   };
 
-  // ===== SOUMISSION =====
+    // ===== SOUMISSION =====
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Vérification que l'utilisateur est authentifié
+    if (!user?._id) {
+      toast.error('Utilisateur non authentifié');
+      return;
+    }
+
+    // Utilisation de validateForm
     if (!validateForm()) {
-      toast.error('Veuillez corriger les erreurs');
+      toast.error('Veuillez corriger les erreurs dans le formulaire');
       return;
     }
 
     setLoading(true);
+
     try {
-      const dataToSend = nettoyerDonnees();
-      console.log('Envoi:', dataToSend);
+      // Nettoyer les données
+      const donneesNettoyees = nettoyerDonnees();
+      
+      // Ajouter les informations d'authentification
+      const dataToSend = {
+        ...donneesNettoyees,
+        laboratoireId: user.laboratoireId || user.espaceId,
+        createdBy: user._id
+      };
+
+      console.log('📦 Données envoyées:', dataToSend);
 
       if (id) {
         await api.put(`/analyses/${id}`, dataToSend);
-        toast.success('Analyse modifiée avec succès');
+        toast.success('✅ Analyse modifiée avec succès');
       } else {
         await api.post('/analyses', dataToSend);
-        toast.success('Analyse créée avec succès');
+        toast.success('✅ Analyse créée avec succès');
       }
+      
       navigate('/analyses');
     } catch (err) {
-      console.error('Erreur:', err);
-      if (err.response?.status === 409) {
-        toast.error('Ce code existe déjà');
-      } else {
-        toast.error(err.response?.data?.message || 'Erreur sauvegarde');
+      console.error('❌ Erreur:', err);
+      
+      const errorMessage = err.response?.data?.message || 'Erreur lors de la sauvegarde';
+      toast.error(errorMessage);
+      
+      if (err.response?.data?.errors) {
+        console.error('Détails validation:', err.response.data.errors);
       }
     } finally {
       setLoading(false);
