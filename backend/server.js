@@ -1,7 +1,7 @@
 // ===========================================
 // FICHIER: backend/server.js
 // RÔLE: Point d'entrée principal du serveur
-// VERSION: Optimisée avec vérification des imports
+// VERSION: Connexion MongoDB corrigée
 // ===========================================
 
 // ===== 1. IMPORTER LES MODULES =====
@@ -23,7 +23,7 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 // ===== 5. MIDDLEWARES GLOBAUX =====
-app.use(express.json({ limit: '10mb' })); // Limite de taille pour les requêtes
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -32,8 +32,8 @@ app.use(cors({
 
 // ===== 6. CONFIGURATION DU RATE LIMITING =====
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // 100 requêtes par IP
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: {
     success: false,
     message: 'Trop de requêtes, veuillez réessayer plus tard'
@@ -43,21 +43,20 @@ const limiter = rateLimit({
 });
 
 const authLimiter = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 heure
-  max: 5, // 5 tentatives max
+  windowMs: 60 * 60 * 1000,
+  max: 5,
   message: {
     success: false,
     message: 'Trop de tentatives, compte temporairement bloqué'
   }
 });
 
-// Appliquer le rate limiting global (sauf routes sensibles)
 app.use(limiter);
 
-// ===== 7. IMPORTER LES ROUTES (UNE SEULE FOIS CHACUNE) =====
+// ===== 7. IMPORTER LES ROUTES =====
 const userRoutes = require('./src/routes/userRoutes');
 const laboratoireRoutes = require('./src/routes/laboratoireRoutes');
-const patientRoutes = require('./src/routes/patientRoutes'); // ← UNE SEULE FOIS
+const patientRoutes = require('./src/routes/patientRoutes');
 const analyseRoutes = require('./src/routes/analyseRoutes');
 const devisRoutes = require('./src/routes/devisRoutes');
 const statsRoutes = require('./src/routes/statsRoutes');
@@ -74,7 +73,7 @@ app.use('/api/users/register', authLimiter);
 // ===== 9. UTILISER LES ROUTES =====
 app.use('/api/users', userRoutes);
 app.use('/api/laboratoires', laboratoireRoutes);
-app.use('/api/patients', patientRoutes); // ← UNE SEULE FOIS
+app.use('/api/patients', patientRoutes);
 app.use('/api/analyses', analyseRoutes);
 app.use('/api/devis', devisRoutes);
 app.use('/api/stats', statsRoutes);
@@ -114,10 +113,8 @@ const io = socketIo(server, {
   }
 });
 
-// Rendre io accessible dans les routes via app
 app.set('io', io);
 
-// Gestion des connexions Socket.IO
 io.on('connection', (socket) => {
   console.log('🔌 Nouvelle connexion socket:', socket.id);
 
@@ -148,17 +145,16 @@ app.use((err, req, res, next) => {
   });
 });
 
-// ===== 14. CONNEXION À MONGODB ATLAS =====
+// ===== 14. CONNEXION À MONGODB ATLAS (VERSION CORRIGÉE) =====
 console.log('🔄 Tentative de connexion à MongoDB Atlas...');
 
-mongoose.connect(process.env.MONGODB_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-  serverSelectionTimeoutMS: 5000 // Timeout après 5 secondes
-})
+// Les options useNewUrlParser et useUnifiedTopology ne sont plus nécessaires
+// dans les versions récentes de Mongoose (6+)
+mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('✅ CONNEXION MONGODB ATLAS RÉUSSIE !');
     console.log(`📊 Base de données: ${mongoose.connection.name}`);
+    console.log(`📦 Hôte: ${mongoose.connection.host}`);
     
     // Démarrer le serveur
     server.listen(PORT, () => {
@@ -179,6 +175,7 @@ mongoose.connect(process.env.MONGODB_URI, {
     console.log('   2. Votre IP est autorisée dans MongoDB Atlas');
     console.log('   3. L\'URL est bien copiée');
     console.log('   4. Le réseau est accessible');
+    console.log('   5. Le format de l\'URL est: mongodb+srv://user:pass@cluster.mongodb.net/dbname');
     process.exit(1);
   });
 
