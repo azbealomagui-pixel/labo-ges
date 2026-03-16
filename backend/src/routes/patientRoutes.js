@@ -1,29 +1,33 @@
 // ===========================================
 // FICHIER: src/routes/patientRoutes.js
 // RÔLE: Routes pour la gestion des patients
-// VERSION: Avec permissions, journalisation et validation renforcée
+// VERSION: Avec authentification, permissions et journalisation
 // ===========================================
 
 const express = require('express');
 const Patient = require('../models/Patient');
 const AuditLog = require('../models/AuditLog');
+const { authenticate } = require('../middleware/auth'); // ← AJOUT OBLIGATOIRE
 const { checkPermission } = require('../middleware/checkPermission');
 const router = express.Router();
 
 // ===========================================
 // CRÉER un patient (POST)
 // ===========================================
-router.post('/', checkPermission('CREATE_PATIENT'), async (req, res) => {
+router.post('/', authenticate, checkPermission('CREATE_PATIENT'), async (req, res) => {
   try {
     const { 
       nom, prenom, dateNaissance, sexe, 
       telephone, email, adresse,
       numeroSecuriteSociale, groupeSanguin,
       allergies, observations,
-      laboratoireId, createdBy 
+      laboratoireId
     } = req.body;
     
-    // === VALIDATION RENFORCÉE ===
+    // L'utilisateur authentifié devient le créateur
+    const createdBy = req.user._id;
+
+    // === VALIDATION ===
     const missingFields = [];
     if (!nom?.trim()) missingFields.push('nom');
     if (!prenom?.trim()) missingFields.push('prenom');
@@ -32,7 +36,6 @@ router.post('/', checkPermission('CREATE_PATIENT'), async (req, res) => {
     if (!telephone?.trim()) missingFields.push('telephone');
     if (!adresse?.trim()) missingFields.push('adresse');
     if (!laboratoireId) missingFields.push('laboratoireId');
-    if (!createdBy) missingFields.push('createdBy');
 
     if (missingFields.length > 0) {
       return res.status(400).json({
@@ -42,7 +45,7 @@ router.post('/', checkPermission('CREATE_PATIENT'), async (req, res) => {
       });
     }
 
-    // Validation du format email (si fourni)
+    // Validation email
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       return res.status(400).json({
         success: false,
@@ -50,7 +53,7 @@ router.post('/', checkPermission('CREATE_PATIENT'), async (req, res) => {
       });
     }
 
-    // Validation du téléphone (minimum 8 chiffres)
+    // Validation téléphone
     if (!/^[0-9+\-\s]{8,}$/.test(telephone)) {
       return res.status(400).json({
         success: false,
@@ -58,7 +61,7 @@ router.post('/', checkPermission('CREATE_PATIENT'), async (req, res) => {
       });
     }
 
-    // Validation de la date de naissance (pas dans le futur)
+    // Validation date naissance
     if (new Date(dateNaissance) > new Date()) {
       return res.status(400).json({
         success: false,
@@ -66,7 +69,7 @@ router.post('/', checkPermission('CREATE_PATIENT'), async (req, res) => {
       });
     }
     
-    // Créer le patient
+    // Création du patient
     const newPatient = new Patient({
       nom: nom.trim(),
       prenom: prenom.trim(),
@@ -85,7 +88,7 @@ router.post('/', checkPermission('CREATE_PATIENT'), async (req, res) => {
     
     await newPatient.save();
 
-    // === JOURNALISATION ===
+    // Journalisation
     await AuditLog.create({
       espaceId: laboratoireId,
       utilisateurId: createdBy,
@@ -135,16 +138,15 @@ router.post('/', checkPermission('CREATE_PATIENT'), async (req, res) => {
 });
 
 // ===========================================
-// LISTER tous les patients d'un laboratoire (GET)
+// LISTER tous les patients (GET)
 // ===========================================
-router.get('/labo/:laboratoireId', checkPermission('VIEW_PATIENTS'), async (req, res) => {
+router.get('/labo/:laboratoireId', authenticate, checkPermission('VIEW_PATIENTS'), async (req, res) => {
   try {
     const { laboratoireId } = req.params;
     const { page = 1, limit = 50, search } = req.query;
 
     const query = { laboratoireId };
     
-    // Recherche optionnelle
     if (search && search.length >= 2) {
       query.$or = [
         { nom: { $regex: search, $options: 'i' } },
@@ -180,13 +182,13 @@ router.get('/labo/:laboratoireId', checkPermission('VIEW_PATIENTS'), async (req,
 });
 
 // ===========================================
-// RECHERCHER des patients (GET /search?q=texte)
+// RECHERCHER des patients (GET /search)
 // ===========================================
-router.get('/search', checkPermission('VIEW_PATIENTS'), async (req, res) => {
+router.get('/search', authenticate, checkPermission('VIEW_PATIENTS'), async (req, res) => {
   try {
     const { q, laboratoireId } = req.query;
     
-    if (!q || q.length < 2) {
+    if (!q || q.length < 2 || !laboratoireId) {
       return res.json({ success: true, patients: [] });
     }
     
@@ -218,7 +220,7 @@ router.get('/search', checkPermission('VIEW_PATIENTS'), async (req, res) => {
 // ===========================================
 // OBTENIR un patient par ID (GET /:id)
 // ===========================================
-router.get('/:id', checkPermission('VIEW_PATIENTS'), async (req, res) => {
+router.get('/:id', authenticate, checkPermission('VIEW_PATIENTS'), async (req, res) => {
   try {
     const patient = await Patient.findById(req.params.id);
     
@@ -254,7 +256,7 @@ router.get('/:id', checkPermission('VIEW_PATIENTS'), async (req, res) => {
 // ===========================================
 // METTRE À JOUR un patient (PUT /:id)
 // ===========================================
-router.put('/:id', checkPermission('UPDATE_PATIENT'), async (req, res) => {
+router.put('/:id', authenticate, checkPermission('UPDATE_PATIENT'), async (req, res) => {
   try {
     const patient = await Patient.findByIdAndUpdate(
       req.params.id,
@@ -269,10 +271,10 @@ router.put('/:id', checkPermission('UPDATE_PATIENT'), async (req, res) => {
       });
     }
 
-    // === JOURNALISATION ===
+    // Journalisation
     await AuditLog.create({
       espaceId: patient.laboratoireId,
-      utilisateurId: req.user?._id,
+      utilisateurId: req.user._id,
       action: 'UPDATE_PATIENT',
       cible: {
         type: 'Patient',
@@ -314,7 +316,7 @@ router.put('/:id', checkPermission('UPDATE_PATIENT'), async (req, res) => {
 // ===========================================
 // SUPPRIMER un patient (DELETE /:id)
 // ===========================================
-router.delete('/:id', checkPermission('DELETE_PATIENT'), async (req, res) => {
+router.delete('/:id', authenticate, checkPermission('DELETE_PATIENT'), async (req, res) => {
   try {
     const patient = await Patient.findByIdAndDelete(req.params.id);
     
@@ -325,10 +327,10 @@ router.delete('/:id', checkPermission('DELETE_PATIENT'), async (req, res) => {
       });
     }
 
-    // === JOURNALISATION ===
+    // Journalisation
     await AuditLog.create({
       espaceId: patient.laboratoireId,
-      utilisateurId: req.user?._id,
+      utilisateurId: req.user._id,
       action: 'DELETE_PATIENT',
       cible: {
         type: 'Patient',
