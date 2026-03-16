@@ -143,12 +143,12 @@ router.post('/', authenticate, checkPermission('CREATE_PATIENT'), async (req, re
 // ===========================================
 // LISTER tous les patients (GET)
 // ===========================================
-router.get('/labo/:laboratoireId', authenticate, checkPermission('VIEW_PATIENTS'), async (req, res) => {
+router.get('/labo/:espaceId', authenticate, checkPermission('VIEW_PATIENTS'), async (req, res) => {
   try {
-    const { laboratoireId } = req.params;
+    const { espaceId } = req.params;
     const { page = 1, limit = 50, search } = req.query;
 
-    const query = { laboratoireId };
+    const query = { espaceId };
     
     if (search && search.length >= 2) {
       query.$or = [
@@ -189,9 +189,9 @@ router.get('/labo/:laboratoireId', authenticate, checkPermission('VIEW_PATIENTS'
 // ===========================================
 router.get('/search', authenticate, checkPermission('VIEW_PATIENTS'), async (req, res) => {
   try {
-    const { q, laboratoireId } = req.query;
+    const { q, espaceId } = req.query;
     
-    if (!q || q.length < 2 || !laboratoireId) {
+    if (!q || q.length < 2 || !espaceId) {
       return res.json({ success: true, patients: [] });
     }
     
@@ -276,7 +276,7 @@ router.put('/:id', authenticate, checkPermission('UPDATE_PATIENT'), async (req, 
 
     // Journalisation
     await AuditLog.create({
-      espaceId: patient.laboratoireId,
+      espaceId: patient.espaceId,
       utilisateurId: req.user._id,
       action: 'UPDATE_PATIENT',
       cible: {
@@ -332,7 +332,7 @@ router.delete('/:id', authenticate, checkPermission('DELETE_PATIENT'), async (re
 
     // Journalisation
     await AuditLog.create({
-      espaceId: patient.laboratoireId,
+      espaceId: patient.espaceId,
       utilisateurId: req.user._id,
       action: 'DELETE_PATIENT',
       cible: {
