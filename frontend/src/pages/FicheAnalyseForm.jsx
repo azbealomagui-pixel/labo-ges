@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: FicheAnalyseForm
 // RÔLE: Création d'une fiche d'analyses pour un patient
-// AVEC: Vérification robuste de l'utilisateur et espaceId
+// AVEC: Navigation complète
 // ===========================================
 
 import React, { useState, useEffect } from 'react';
@@ -58,7 +58,6 @@ const FicheAnalyseForm = () => {
   // ===== CHARGEMENT DES PATIENTS =====
   useEffect(() => {
     const fetchPatients = async () => {
-      // Vérification que l'utilisateur et son espaceId sont disponibles
       if (!isUserReady) {
         console.log("Utilisateur non chargé, attente...");
         return;
@@ -283,8 +282,8 @@ const FicheAnalyseForm = () => {
       <div className="max-w-6xl mx-auto px-4">
         <div className="bg-white rounded-xl shadow-lg p-8">
           
-          {/* ===== NAVIGATION ===== */}
-          <div className="mb-6 flex items-center gap-4 border-b pb-4">
+          {/* ===== NAVIGATION (BONS ENDROITS) ===== */}
+          <div className="mb-6 flex items-center gap-4 border-b pb-4 flex-wrap">
             <button 
               onClick={() => navigate('/patients')}
               className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
@@ -292,9 +291,11 @@ const FicheAnalyseForm = () => {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              Retour patients
+              <span className="hidden sm:inline">Patients</span>
             </button>
+            
             <span className="text-gray-300">|</span>
+            
             <button 
               onClick={() => navigate('/dashboard')}
               className="flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors"
@@ -302,7 +303,21 @@ const FicheAnalyseForm = () => {
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
               </svg>
-              Dashboard
+              <span className="hidden sm:inline">Dashboard</span>
+            </button>
+            
+            <span className="text-gray-300">|</span>
+            
+            {/* BOUTON VERS LISTE DES FICHES - ICI AU BON ENDROIT */}
+            <button 
+              onClick={() => navigate('/fiches-analyses')}
+              className="flex items-center gap-2 text-green-600 hover:text-green-700 transition-colors"
+              title="Voir toutes les fiches"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+              <span className="hidden sm:inline">Liste des fiches</span>
             </button>
           </div>
 
