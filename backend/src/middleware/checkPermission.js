@@ -27,6 +27,12 @@ const PERMISSIONS = {
   'VIEW_DEVIS': ['super_admin', 'admin', 'manager_labo', 'comptable', 'secretaire'],
   'CREATE_DEVIS': ['super_admin', 'admin', 'manager_labo', 'secretaire'],
   'VALIDATE_DEVIS': ['super_admin', 'admin', 'manager_labo', 'comptable'],
+
+  // Gestion des fiches d'analyses (AJOUTER)
+  'VIEW_FICHES': ['super_admin', 'admin', 'manager_labo', 'biologiste', 'technicien'],
+  'CREATE_FICHE': ['super_admin', 'admin', 'manager_labo', 'biologiste', 'technicien', 'secretaire'],
+  'UPDATE_FICHE': ['super_admin', 'admin', 'manager_labo', 'biologiste'],
+  'DELETE_FICHE': ['super_admin', 'admin', 'manager_labo'],
   
   // Rapports
   'VIEW_RAPPORTS': ['super_admin', 'admin', 'manager_labo', 'biologiste'],
