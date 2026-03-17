@@ -1,17 +1,21 @@
 // ===========================================
 // ROUTES: ficheAnalyseRoutes.js
 // RÔLE: Gestion des fiches d'analyses patient
+// VERSION: Finale avec authentification et permissions
 // ===========================================
+
 const express = require('express');
 const FicheAnalyse = require('../models/FicheAnalyse');
 const Analyse = require('../models/Analyse');
 const Patient = require('../models/Patient');
+const { authenticate } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/checkPermission');
 const router = express.Router();
 
 // ===========================================
 // CRÉER une fiche d'analyse (POST)
 // ===========================================
-router.post('/', async (req, res) => {
+router.post('/', authenticate, checkPermission('CREATE_FICHE'), async (req, res) => {
   try {
     const { patientId, laboratoireId, createdBy, lignes, devise, notes } = req.body;
 
@@ -77,7 +81,7 @@ router.post('/', async (req, res) => {
 // ===========================================
 // LISTER les fiches d'un patient (GET)
 // ===========================================
-router.get('/patient/:patientId', async (req, res) => {
+router.get('/patient/:patientId', authenticate, checkPermission('VIEW_FICHES'), async (req, res) => {
   try {
     const fiches = await FicheAnalyse.find({ 
       patientId: req.params.patientId 
@@ -92,9 +96,37 @@ router.get('/patient/:patientId', async (req, res) => {
     });
 
   } catch (error) {
+    console.error('❌ Erreur listage fiches patient:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message || 'Erreur serveur'
+    });
+  }
+});
+
+// ===========================================
+// LISTER les fiches d'un laboratoire (GET)
+// ===========================================
+router.get('/labo/:espaceId', authenticate, checkPermission('VIEW_FICHES'), async (req, res) => {
+  try {
+    const { espaceId } = req.params;
+    
+    const fiches = await FicheAnalyse.find({ laboratoireId: espaceId })
+      .populate('patientId', 'nom prenom telephone')
+      .populate('createdBy', 'nom prenom')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: fiches.length,
+      fiches
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur listage fiches labo:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du chargement des fiches'
     });
   }
 });
@@ -102,7 +134,7 @@ router.get('/patient/:patientId', async (req, res) => {
 // ===========================================
 // OBTENIR une fiche par ID (GET)
 // ===========================================
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticate, checkPermission('VIEW_FICHES'), async (req, res) => {
   try {
     const fiche = await FicheAnalyse.findById(req.params.id)
       .populate('patientId')
@@ -122,9 +154,18 @@ router.get('/:id', async (req, res) => {
     });
 
   } catch (error) {
+    console.error('❌ Erreur récupération fiche:', error);
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'ID de fiche invalide'
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message || 'Erreur serveur'
     });
   }
 });
@@ -132,7 +173,7 @@ router.get('/:id', async (req, res) => {
 // ===========================================
 // METTRE À JOUR le statut d'une fiche (PATCH)
 // ===========================================
-router.patch('/:id/statut', async (req, res) => {
+router.patch('/:id/statut', authenticate, checkPermission('UPDATE_FICHE'), async (req, res) => {
   try {
     const { statut } = req.body;
     
@@ -159,36 +200,10 @@ router.patch('/:id/statut', async (req, res) => {
     });
 
   } catch (error) {
+    console.error('❌ Erreur mise à jour statut:', error);
     res.status(500).json({
       success: false,
-      message: error.message
-    });
-  }
-});
-
-
-// ===========================================
-// LISTER les fiches d'un laboratoire (GET)
-// ===========================================
-router.get('/labo/:espaceId', authenticate, checkPermission('VIEW_FICHES'), async (req, res) => {
-  try {
-    const { espaceId } = req.params;
-    
-    const fiches = await FicheAnalyse.find({ laboratoireId: espaceId })
-      .populate('patientId', 'nom prenom telephone')
-      .sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      count: fiches.length,
-      fiches
-    });
-
-  } catch (error) {
-    console.error('❌ Erreur listage fiches:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors du chargement des fiches'
+      message: error.message || 'Erreur serveur'
     });
   }
 });
