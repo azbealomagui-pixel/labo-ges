@@ -166,4 +166,31 @@ router.patch('/:id/statut', async (req, res) => {
   }
 });
 
+
+// ===========================================
+// LISTER les fiches d'un laboratoire (GET)
+// ===========================================
+router.get('/labo/:espaceId', authenticate, checkPermission('VIEW_FICHES'), async (req, res) => {
+  try {
+    const { espaceId } = req.params;
+    
+    const fiches = await FicheAnalyse.find({ laboratoireId: espaceId })
+      .populate('patientId', 'nom prenom telephone')
+      .sort({ createdAt: -1 });
+
+    res.json({
+      success: true,
+      count: fiches.length,
+      fiches
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur listage fiches:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors du chargement des fiches'
+    });
+  }
+});
+
 module.exports = router;

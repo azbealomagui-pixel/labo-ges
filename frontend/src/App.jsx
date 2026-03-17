@@ -28,6 +28,7 @@ import InstallPWA from './components/InstallPWA';
 import Parametres from './pages/Parametres';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
+import FichesAnalyses from './pages/FichesAnalyses';
 
 
 // Providers
@@ -195,6 +196,13 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password/:token" element={<ResetPassword />} />
 
+
+          // ===== DANS LES ROUTES PROTÉGÉES =====
+          <Route path="/fiches-analyses" element={
+            <ProtectedRoute>
+              <FichesAnalyses />
+            </ProtectedRoute>
+          } />
 
 
 
