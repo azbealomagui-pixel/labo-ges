@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: FichesAnalyses
 // RÔLE: Lister toutes les fiches d'analyses créées
-// AVEC: Accès direct au PV final
+// AVEC: Accès direct au PV final et suppression
 // ===========================================
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
-import { IconSearch, IconFile, IconPrinter } from '../assets';
+import { IconSearch } from '../assets';
 
 const FichesAnalyses = () => {
   const navigate = useNavigate();
@@ -24,6 +24,13 @@ const FichesAnalyses = () => {
     valide: 0
   });
 
+  // ===== ÉTAT POUR LA MODALE DE SUPPRESSION =====
+  const [deleteModal, setDeleteModal] = useState({
+    isOpen: false,
+    ficheId: null,
+    patientNom: ''
+  });
+
   // ===== CHARGEMENT DES FICHES =====
   const fetchFiches = useCallback(async () => {
     try {
@@ -35,15 +42,12 @@ const FichesAnalyses = () => {
         return;
       }
 
-      // Récupérer toutes les fiches du laboratoire
-      // Note: Cette route est à créer dans le backend
       const response = await api.get(`/fiches-analyses/labo/${espaceId}`);
       const fichesData = response.data.fiches || [];
       
       setFiches(fichesData);
       setFilteredFiches(fichesData);
       
-      // Calculer les statistiques
       setStats({
         total: fichesData.length,
         brouillon: fichesData.filter(f => f.statut === 'brouillon').length,
@@ -89,6 +93,28 @@ const FichesAnalyses = () => {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  // ===== OUVRIR LA MODALE =====
+  const openDeleteModal = (id, nom, prenom) => {
+    setDeleteModal({
+      isOpen: true,
+      ficheId: id,
+      patientNom: `${prenom} ${nom}`
+    });
+  };
+
+  // ===== CONFIRMER LA SUPPRESSION =====
+  const handleConfirmDelete = async () => {
+    try {
+      await api.delete(`/fiches-analyses/${deleteModal.ficheId}`);
+      toast.success(`🗑️ Fiche de ${deleteModal.patientNom} supprimée`);
+      setDeleteModal({ isOpen: false, ficheId: null, patientNom: '' });
+      fetchFiches(); // Recharger la liste
+    } catch (error) {
+      console.error('❌ Erreur suppression:', error);
+      toast.error('Erreur lors de la suppression');
+    }
   };
 
   // ===== AFFICHAGE DU LOADER =====
@@ -247,6 +273,17 @@ const FichesAnalyses = () => {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                             </svg>
                           </button>
+                          
+                          {/* BOUTON SUPPRIMER */}
+                          <button
+                            onClick={() => openDeleteModal(fiche._id, fiche.patientId?.nom, fiche.patientId?.prenom)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            title="Supprimer la fiche"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -256,6 +293,41 @@ const FichesAnalyses = () => {
             </div>
           )}
         </div>
+
+        {/* ===== MODALE DE CONFIRMATION (EN DEHORS DU TABLEAU) ===== */}
+        {deleteModal.isOpen && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 animate-fade-in">
+              <div className="flex items-center gap-3 text-red-600 mb-4">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+                <h2 className="text-xl font-bold text-gray-900">Confirmation</h2>
+              </div>
+              
+              <p className="text-gray-700 mb-6">
+                Êtes-vous sûr de vouloir supprimer la fiche de <span className="font-semibold">{deleteModal.patientNom}</span> ?
+                <br />
+                <span className="text-sm text-red-500 mt-2 inline-block">⚠️ Cette action est irréversible.</span>
+              </p>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={handleConfirmDelete}
+                  className="flex-1 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700 transition-colors font-medium"
+                >
+                  Oui, supprimer
+                </button>
+                <button
+                  onClick={() => setDeleteModal({ isOpen: false, ficheId: null, patientNom: '' })}
+                  className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors font-medium"
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

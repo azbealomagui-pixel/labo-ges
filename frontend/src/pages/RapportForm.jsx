@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: RapportForm
 // RÔLE: Saisie des résultats et validation
-// VERSION: Sans warning ESLint
+// VERSION: Corrigée avec sauvegarde fonctionnelle
 // ===========================================
 
 import React, { useEffect, useState } from 'react';
@@ -17,6 +17,7 @@ const RapportForm = () => {
   const { id } = useParams(); // ID de la fiche d'analyse
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false); // ← DÉPLACÉ ICI
   const [rapport, setRapport] = useState(null);
   const [resultats, setResultats] = useState([]);
 
@@ -63,11 +64,23 @@ const RapportForm = () => {
   // ===== SAUVEGARDER LES RÉSULTATS =====
   const handleSave = async () => {
     try {
-      await api.put(`/rapports/${rapport._id}/resultats`, { resultats });
-      toast.success('✅ Résultats sauvegardés');
+      setSaving(true);
+      
+      // Appel API pour mettre à jour les résultats
+      const response = await api.put(`/rapports/${rapport._id}/resultats`, { 
+        resultats: resultats 
+      });
+      
+      if (response.data.success) {
+        toast.success('✅ Résultats sauvegardés');
+        // Mettre à jour le rapport avec les nouvelles données
+        setRapport(response.data.rapport);
+      }
     } catch (error) {
       console.error('❌ Erreur sauvegarde:', error);
-      toast.error('Erreur sauvegarde');
+      toast.error('Erreur lors de la sauvegarde');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -186,9 +199,10 @@ const RapportForm = () => {
           <div className="flex gap-4 mt-8">
             <button
               onClick={handleSave}
-              className="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700"
+              disabled={saving}
+              className="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50"
             >
-              Sauvegarder
+              {saving ? 'Sauvegarde...' : 'Sauvegarder'}
             </button>
             <button
               onClick={handleValider}
