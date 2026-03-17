@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: FicheAnalyseForm
 // RÔLE: Création d'une fiche d'analyses pour un patient
-// AVEC: Recherche instantanée et bouton PV
+// AVEC: Vérification robuste de l'utilisateur et espaceId
 // ===========================================
 
 import React, { useState, useEffect } from 'react';
@@ -29,6 +29,7 @@ const FicheAnalyseForm = () => {
   const [selectedPatient, setSelectedPatient] = useState(null);
   const [selectedAnalyses, setSelectedAnalyses] = useState([]);
   const [ficheCreeeId, setFicheCreeeId] = useState(null);
+  const [isUserReady, setIsUserReady] = useState(false);
   
   // États pour la saisie en cours
   const [currentCode, setCurrentCode] = useState('');
@@ -39,31 +40,68 @@ const FicheAnalyseForm = () => {
   const [devise, setDevise] = useState('EUR');
   const [notes, setNotes] = useState('');
 
+  // ===== VÉRIFICATION QUE L'UTILISATEUR EST PRÊT =====
+  useEffect(() => {
+    if (user && (user.laboratoireId || user.espaceId)) {
+      console.log('✅ Utilisateur prêt:', {
+        id: user._id,
+        laboratoireId: user.laboratoireId,
+        espaceId: user.espaceId
+      });
+      setIsUserReady(true);
+    } else {
+      console.log('⏳ Utilisateur en cours de chargement...');
+      setIsUserReady(false);
+    }
+  }, [user]);
+
   // ===== CHARGEMENT DES PATIENTS =====
   useEffect(() => {
     const fetchPatients = async () => {
-      try {
-        // CORRECTION : Utiliser l'espaceId
-        const espaceId = user?.laboratoireId || user?.espaceId;
-        
-        if (!espaceId) {
-          console.error('❌ espaceId manquant');
-          toast.error('Configuration espace invalide');
-          return;
-        }
+      // Vérification que l'utilisateur et son espaceId sont disponibles
+      if (!isUserReady) {
+        console.log("Utilisateur non chargé, attente...");
+        return;
+      }
 
+      try {
+        const espaceId = user.laboratoireId || user.espaceId;
+        
+        console.log('🔍 Chargement patients pour espaceId:', espaceId);
+        
         const response = await api.get(`/patients/labo/${espaceId}`);
         setPatients(response.data.patients || []);
+        console.log(`📦 ${response.data.patients?.length || 0} patients chargés`);
       } catch (err) {
         console.error('❌ Erreur chargement patients:', err);
         toast.error('Impossible de charger la liste des patients');
       }
     };
     
-    if (user) {
-      fetchPatients();
-    }
-  }, [user]);
+    fetchPatients();
+  }, [isUserReady, user]);
+
+  // ===== CHARGEMENT DES ANALYSES =====
+  useEffect(() => {
+    const fetchAnalyses = async () => {
+      if (!isUserReady) return;
+
+      try {
+        const espaceId = user.laboratoireId || user.espaceId;
+        
+        console.log('🔍 Chargement analyses pour espaceId:', espaceId);
+        
+        const response = await api.get(`/analyses/labo/${espaceId}`);
+        setAnalyses(response.data.analyses || []);
+        console.log(`📦 ${response.data.analyses?.length || 0} analyses chargées`);
+      } catch (err) {
+        console.error('❌ Erreur chargement analyses:', err);
+        toast.error('Impossible de charger le catalogue des analyses');
+      }
+    };
+    
+    fetchAnalyses();
+  }, [isUserReady, user]);
 
   // ===== SÉLECTION AUTOMATIQUE DU PATIENT DEPUIS L'URL =====
   useEffect(() => {
@@ -78,30 +116,6 @@ const FicheAnalyseForm = () => {
       }
     }
   }, [location.search, patients]);
-
-  // ===== CHARGEMENT DES ANALYSES =====
-  useEffect(() => {
-    const fetchAnalyses = async () => {
-      try {
-        // CORRECTION : Utiliser l'espaceId
-        const espaceId = user?.laboratoireId || user?.espaceId;
-        
-        if (!espaceId) {
-          return;
-        }
-
-        const response = await api.get(`/analyses/labo/${espaceId}`);
-        setAnalyses(response.data.analyses || []);
-      } catch (err) {
-        console.error('❌ Erreur chargement analyses:', err);
-        toast.error('Impossible de charger le catalogue des analyses');
-      }
-    };
-    
-    if (user) {
-      fetchAnalyses();
-    }
-  }, [user]);
 
   // ===== RECHERCHE INSTANTANÉE DU CODE =====
   useEffect(() => {
@@ -202,11 +216,15 @@ const FicheAnalyseForm = () => {
       return;
     }
 
+    if (!isUserReady) {
+      toast.error('Utilisateur non authentifié');
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // CORRECTION : Utiliser l'espaceId
-      const espaceId = user?.laboratoireId || user?.espaceId;
+      const espaceId = user.laboratoireId || user.espaceId;
       
       if (!espaceId) {
         toast.error('Configuration espace invalide');
@@ -247,6 +265,18 @@ const FicheAnalyseForm = () => {
       setLoading(false);
     }
   };
+
+  // ===== AFFICHAGE DU LOADER INITIAL =====
+  if (!isUserReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary-600 border-t-transparent mx-auto mb-4"></div>
+          <p className="text-gray-600">Chargement de vos données...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -295,18 +325,24 @@ const FicheAnalyseForm = () => {
               </div>
 
               <div className="border rounded-lg max-h-40 overflow-y-auto">
-                {filteredPatients.map(p => (
-                  <div
-                    key={p._id}
-                    onClick={() => setSelectedPatient(p)}
-                    className={`p-3 cursor-pointer hover:bg-gray-50 border-b ${
-                      selectedPatient?._id === p._id ? 'bg-primary-50 border-l-4 border-l-primary-600' : ''
-                    }`}
-                  >
-                    <div className="font-medium">{p.nom} {p.prenom}</div>
-                    <div className="text-sm text-gray-600">{p.telephone}</div>
+                {filteredPatients.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    Aucun patient trouvé
                   </div>
-                ))}
+                ) : (
+                  filteredPatients.map(p => (
+                    <div
+                      key={p._id}
+                      onClick={() => setSelectedPatient(p)}
+                      className={`p-3 cursor-pointer hover:bg-gray-50 border-b ${
+                        selectedPatient?._id === p._id ? 'bg-primary-50 border-l-4 border-l-primary-600' : ''
+                      }`}
+                    >
+                      <div className="font-medium">{p.nom} {p.prenom}</div>
+                      <div className="text-sm text-gray-600">{p.telephone}</div>
+                    </div>
+                  ))
+                )}
               </div>
 
               {selectedPatient && (
