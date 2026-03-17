@@ -43,15 +43,27 @@ const FicheAnalyseForm = () => {
   useEffect(() => {
     const fetchPatients = async () => {
       try {
-        const response = await api.get(`/patients/labo/${user.laboratoireId}`);
+        // CORRECTION : Utiliser l'espaceId
+        const espaceId = user?.laboratoireId || user?.espaceId;
+        
+        if (!espaceId) {
+          console.error('❌ espaceId manquant');
+          toast.error('Configuration espace invalide');
+          return;
+        }
+
+        const response = await api.get(`/patients/labo/${espaceId}`);
         setPatients(response.data.patients || []);
       } catch (err) {
-        console.error('Erreur chargement patients:', err);
-        toast.error('Erreur chargement patients');
+        console.error('❌ Erreur chargement patients:', err);
+        toast.error('Impossible de charger la liste des patients');
       }
     };
-    fetchPatients();
-  }, [user.laboratoireId]);
+    
+    if (user) {
+      fetchPatients();
+    }
+  }, [user]);
 
   // ===== SÉLECTION AUTOMATIQUE DU PATIENT DEPUIS L'URL =====
   useEffect(() => {
@@ -71,15 +83,25 @@ const FicheAnalyseForm = () => {
   useEffect(() => {
     const fetchAnalyses = async () => {
       try {
-        const response = await api.get(`/analyses/labo/${user.laboratoireId}`);
+        // CORRECTION : Utiliser l'espaceId
+        const espaceId = user?.laboratoireId || user?.espaceId;
+        
+        if (!espaceId) {
+          return;
+        }
+
+        const response = await api.get(`/analyses/labo/${espaceId}`);
         setAnalyses(response.data.analyses || []);
       } catch (err) {
-        console.error('Erreur chargement analyses:', err);
-        toast.error('Erreur chargement catalogue');
+        console.error('❌ Erreur chargement analyses:', err);
+        toast.error('Impossible de charger le catalogue des analyses');
       }
     };
-    fetchAnalyses();
-  }, [user.laboratoireId]);
+    
+    if (user) {
+      fetchAnalyses();
+    }
+  }, [user]);
 
   // ===== RECHERCHE INSTANTANÉE DU CODE =====
   useEffect(() => {
@@ -183,9 +205,17 @@ const FicheAnalyseForm = () => {
     setLoading(true);
 
     try {
+      // CORRECTION : Utiliser l'espaceId
+      const espaceId = user?.laboratoireId || user?.espaceId;
+      
+      if (!espaceId) {
+        toast.error('Configuration espace invalide');
+        return;
+      }
+
       const ficheData = {
         patientId: selectedPatient._id,
-        laboratoireId: user.laboratoireId,
+        laboratoireId: espaceId,
         createdBy: user._id,
         devise,
         notes,
@@ -202,7 +232,7 @@ const FicheAnalyseForm = () => {
         }))
       };
 
-      console.log('Données envoyées:', JSON.stringify(ficheData, null, 2));
+      console.log('📦 Données envoyées:', ficheData);
 
       const response = await api.post('/fiches-analyses', ficheData);
       
@@ -211,7 +241,7 @@ const FicheAnalyseForm = () => {
         setFicheCreeeId(response.data.fiche._id);
       }
     } catch (err) {
-      console.error('Erreur création:', err);
+      console.error('❌ Erreur création:', err);
       toast.error(err.response?.data?.message || 'Erreur lors de la création');
     } finally {
       setLoading(false);
