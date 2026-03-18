@@ -84,7 +84,7 @@ const RapportForm = () => {
     }
   };
 
-  // ===== VALIDER LE RAPPORT =====
+  // ===== VALIDER LE RAPPORT (VERSION AVEC DÉBOGAGE) =====
   const handleValider = async () => {
     try {
       const signature = prompt('Entrez votre signature:');
@@ -98,12 +98,24 @@ const RapportForm = () => {
       if (response.data.success) {
         toast.success('✅ Rapport validé');
         
-        // Générer le PDF
-        const doc = await genererPDFRapport(response.data.rapport, user);
-        if (doc) {
-          const pdfBlob = doc.output('blob');
-          const url = URL.createObjectURL(pdfBlob);
-          window.open(url, '_blank');
+        try {
+          // Générer le PDF
+          console.log('📄 Génération du PDF...');
+          const doc = await genererPDFRapport(response.data.rapport, user);
+          
+          if (doc) {
+            console.log('✅ PDF généré avec succès');
+            const pdfBlob = doc.output('blob');
+            const url = URL.createObjectURL(pdfBlob);
+            window.open(url, '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+          } else {
+            console.error('❌ doc est null');
+            toast.error('Erreur génération PDF');
+          }
+        } catch (pdfError) {
+          console.error('❌ Erreur PDF détaillée:', pdfError);
+          toast.error('Erreur lors de la génération du PDF');
         }
       }
     } catch (error) {
