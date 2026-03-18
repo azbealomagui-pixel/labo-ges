@@ -105,7 +105,7 @@ const FichesAnalyses = () => {
   };
 
   // ===== CONFIRMER LA SUPPRESSION =====
-  const handleConfirmDelete = async () => {
+  /*const handleConfirmDelete = async () => {
     try {
       await api.delete(`/fiches-analyses/${deleteModal.ficheId}`);
       toast.success(`🗑️ Fiche de ${deleteModal.patientNom} supprimée`);
@@ -115,7 +115,44 @@ const FichesAnalyses = () => {
       console.error('❌ Erreur suppression:', error);
       toast.error('Erreur lors de la suppression');
     }
+  };*/
+
+
+  // ===== CONFIRMER LA SUPPRESSION (VERSION AMÉLIORÉE) =====
+  const handleConfirmDelete = async () => {
+    try {
+      console.log('🗑️ Suppression de la fiche:', deleteModal.ficheId);
+      
+      const response = await api.delete(`/fiches-analyses/${deleteModal.ficheId}`);
+      
+      console.log('✅ Réponse API:', response.data);
+      
+      toast.success(`🗑️ Fiche de ${deleteModal.patientNom} supprimée`);
+      setDeleteModal({ isOpen: false, ficheId: null, patientNom: '' });
+      fetchFiches(); // Recharger la liste
+      
+    } catch (error) {
+      console.error('❌ Erreur détaillée:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data,
+        config: error.config
+      });
+      
+      // Message d'erreur plus explicite
+      if (error.response?.status === 404) {
+        toast.error('Route de suppression non trouvée - Vérifiez le backend');
+      } else if (error.response?.status === 403) {
+        toast.error('Permission refusée');
+      } else {
+        toast.error(error.response?.data?.message || 'Erreur lors de la suppression');
+      }
+    }
   };
+
+
+
+
 
   // ===== AFFICHAGE DU LOADER =====
   if (loading) {

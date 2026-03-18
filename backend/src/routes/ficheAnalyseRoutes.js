@@ -208,4 +208,50 @@ router.patch('/:id/statut', authenticate, checkPermission('UPDATE_FICHE'), async
   }
 });
 
+// ===========================================
+// SUPPRIMER une fiche d'analyse (DELETE)
+// ===========================================
+router.delete('/:id', authenticate, checkPermission('DELETE_FICHE'), async (req, res) => {
+  try {
+    const fiche = await FicheAnalyse.findByIdAndDelete(req.params.id);
+    
+    if (!fiche) {
+      return res.status(404).json({
+        success: false,
+        message: 'Fiche non trouvée'
+      });
+    }
+
+    // Journalisation (optionnelle)
+    await AuditLog.create({
+      espaceId: fiche.laboratoireId,
+      utilisateurId: req.user._id,
+      action: 'DELETE_FICHE',
+      cible: {
+        type: 'FicheAnalyse',
+        id: fiche._id
+      },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
+    res.json({
+      success: true,
+      message: '🗑️ Fiche supprimée définitivement'
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur suppression fiche:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la suppression'
+    });
+  }
+});
+
+
+
+
+
+
 module.exports = router;
