@@ -34,8 +34,10 @@ const PERMISSIONS = {
   'UPDATE_FICHE': ['super_admin', 'admin', 'manager_labo', 'biologiste'],
   'DELETE_FICHE': ['super_admin', 'admin', 'manager_labo','technicien'],
   
-  // Rapports
+  // Gestion des rapports
   'VIEW_RAPPORTS': ['super_admin', 'admin', 'manager_labo', 'biologiste'],
+  'CREATE_RAPPORT': ['super_admin', 'admin', 'manager_labo', 'biologiste'],
+  'UPDATE_RAPPORT': ['super_admin', 'admin', 'manager_labo', 'biologiste'],
   'VALIDATE_RAPPORT': ['super_admin', 'admin', 'manager_labo', 'biologiste'],
   
   // Finances
