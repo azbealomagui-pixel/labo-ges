@@ -1,13 +1,14 @@
 // ===========================================
 // ROUTES: ficheAnalyseRoutes.js
 // RÔLE: Gestion des fiches d'analyses patient
-// VERSION: Finale avec authentification et permissions
+// VERSION: Finale avec suppression fonctionnelle
 // ===========================================
 
 const express = require('express');
 const FicheAnalyse = require('../models/FicheAnalyse');
 const Analyse = require('../models/Analyse');
 const Patient = require('../models/Patient');
+const AuditLog = require('../models/AuditLog');
 const { authenticate } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/checkPermission');
 const router = express.Router();
@@ -248,10 +249,5 @@ router.delete('/:id', authenticate, checkPermission('DELETE_FICHE'), async (req,
     });
   }
 });
-
-
-
-
-
 
 module.exports = router;
