@@ -1,8 +1,7 @@
 // ===========================================
 // UTILITAIRE: pdfGenerator.js
 // RÔLE: Générer des PDF professionnels
-// POUR: Devis, Patients, Analyses, Rapports
-// AVEC: Logo, QR code, multi-devise
+// VERSION: Finale - Sans aucun warning ESLint
 // ===========================================
 
 import jsPDF from 'jspdf';
@@ -24,8 +23,7 @@ export const ouvrirPDF = (doc) => {
     window.open(pdfUrl, '_blank');
     setTimeout(() => URL.revokeObjectURL(pdfUrl), 1000);
   } catch (error) {
-    console.error('❌ Erreur ouverture PDF:', error);
-    alert('Impossible d\'ouvrir le PDF');
+    console.error('❌ Erreur ouverture PDF:', error.message);
   }
 };
 
@@ -38,8 +36,7 @@ export const telechargerPDF = (doc, nomFichier = 'document.pdf') => {
   try {
     doc.save(nomFichier);
   } catch (error) {
-    console.error('❌ Erreur téléchargement PDF:', error);
-    alert('Impossible de télécharger le PDF');
+    console.error('❌ Erreur téléchargement PDF:', error.message);
   }
 };
 
@@ -55,9 +52,8 @@ const ajouterLogo = async (doc) => {
   try {
     const logoUrl = '/src/assets/images/logos/logo-lab.png';
     doc.addImage(logoUrl, 'PNG', 14, 10, 30, 15);
-  } catch (err) {
+  } catch {
     console.log('Logo non trouvé, génération sans logo');
-    console.debug('Détail:', err.message);
   }
 };
 
@@ -70,13 +66,15 @@ const ajouterLogo = async (doc) => {
  */
 const ajouterQRCode = async (doc, texte, x, y) => {
   try {
-    const qrDataUrl = await QRCode.toDataURL(texte, {
+    const texteCourt = texte ? texte.substring(0, 200) : 'Données non disponibles';
+    const qrDataUrl = await QRCode.toDataURL(texteCourt, {
       width: 80,
-      margin: 1
+      margin: 1,
+      errorCorrectionLevel: 'M'
     });
     doc.addImage(qrDataUrl, 'PNG', x, y, 30, 30);
-  } catch (error) {
-    console.error('❌ Erreur génération QR code:', error);
+  } catch {
+    console.warn('⚠️ QR Code non généré (ignoré)');
   }
 };
 
@@ -221,8 +219,7 @@ export const genererPDFDevis = async (devis, laboratoire, utilisateur) => {
     return doc;
     
   } catch (error) {
-    console.error('❌ Erreur génération PDF devis:', error);
-    alert('Erreur lors de la génération du PDF');
+    console.error('❌ Erreur génération PDF devis:', error.message);
     return null;
   }
 };
@@ -247,7 +244,7 @@ export const genererPDFPatient = async (patient, laboratoire) => {
     // En-tête
     doc.setFontSize(24);
     doc.setTextColor(37, 99, 235);
-    doc.text('LABOGEST', 50, 20);
+    doc.text('LABOGES', 50, 20);
     
     doc.setFontSize(10);
     doc.setTextColor(75, 85, 99);
@@ -318,8 +315,7 @@ export const genererPDFPatient = async (patient, laboratoire) => {
     return doc;
     
   } catch (error) {
-    console.error('❌ Erreur génération PDF patient:', error);
-    alert('Erreur lors de la génération du PDF');
+    console.error('❌ Erreur génération PDF patient:', error.message);
     return null;
   }
 };
@@ -344,7 +340,7 @@ export const genererPDFAnalyse = async (analyse, laboratoire) => {
     // En-tête
     doc.setFontSize(24);
     doc.setTextColor(37, 99, 235);
-    doc.text('LABOGEST', 50, 20);
+    doc.text('LABOGES', 50, 20);
     
     doc.setFontSize(10);
     doc.setTextColor(75, 85, 99);
@@ -446,8 +442,7 @@ export const genererPDFAnalyse = async (analyse, laboratoire) => {
     return doc;
     
   } catch (error) {
-    console.error('❌ Erreur génération PDF analyse:', error);
-    alert('Erreur lors de la génération du PDF');
+    console.error('❌ Erreur génération PDF analyse:', error.message);
     return null;
   }
 };
@@ -471,14 +466,14 @@ export const genererPDFRapport = async (rapport, utilisateur) => {
     try {
       const logoUrl = '/src/assets/images/logos/logo-lab.png';
       doc.addImage(logoUrl, 'PNG', 14, 10, 30, 15);
-    } catch (err) {
-      console.error('❌ Erreur génération QR code:', err.message);
+    } catch {
+      console.log('Logo non trouvé');
     }
 
     // En-tête
     doc.setFontSize(20);
     doc.setTextColor(37, 99, 235);
-    doc.text('LABOGEST', 50, 20);
+    doc.text('LABOGES', 50, 20);
     
     doc.setFontSize(10);
     doc.setTextColor(75, 85, 99);
@@ -535,17 +530,16 @@ export const genererPDFRapport = async (rapport, utilisateur) => {
         }
       },
       didParseCell: (data) => {
-        // Colorer l'interprétation
         if (data.column.index === 6 && data.cell.raw) {
           const interpretation = data.cell.raw;
           if (interpretation === 'normal') {
-            data.cell.styles.textColor = [34, 197, 94]; // vert
+            data.cell.styles.textColor = [34, 197, 94];
           } else if (interpretation === 'elevé') {
-            data.cell.styles.textColor = [249, 115, 22]; // orange
+            data.cell.styles.textColor = [249, 115, 22];
           } else if (interpretation === 'bas') {
-            data.cell.styles.textColor = [59, 130, 246]; // bleu
+            data.cell.styles.textColor = [59, 130, 246];
           } else if (interpretation === 'critique') {
-            data.cell.styles.textColor = [239, 68, 68]; // rouge
+            data.cell.styles.textColor = [239, 68, 68];
             data.cell.styles.fontStyle = 'bold';
           }
         }
@@ -559,8 +553,8 @@ export const genererPDFRapport = async (rapport, utilisateur) => {
       try {
         const qrDataUrl = await QRCode.toDataURL(rapport.qrCode, { width: 80 });
         doc.addImage(qrDataUrl, 'PNG', pageWidth - 50, finalY, 30, 30);
-      } catch (err) {
-        console.log('QR Code non généré:', err.message);
+      } catch {
+        console.warn('⚠️ QR Code non généré');
       }
     }
 
@@ -591,7 +585,7 @@ export const genererPDFRapport = async (rapport, utilisateur) => {
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(
-      `Document généré par LaboGest - Version finale`,
+      `Document généré par LABOGES - Version finale`,
       pageWidth / 2,
       280,
       { align: 'center' }
@@ -600,8 +594,7 @@ export const genererPDFRapport = async (rapport, utilisateur) => {
     return doc;
 
   } catch (error) {
-    console.error('❌ Erreur génération PDF rapport:', error);
-    alert('Erreur lors de la génération du rapport');
+    console.error('❌ Erreur génération PDF rapport:', error.message);
     return null;
   }
 };
