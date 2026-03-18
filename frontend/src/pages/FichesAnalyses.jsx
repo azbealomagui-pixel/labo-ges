@@ -253,6 +253,7 @@ const FichesAnalyses = () => {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-center">
                         <div className="flex justify-center gap-2">
+                          {/* Bouton Compléter le PV (si brouillon) */}
                           {fiche.statut !== 'valide' && (
                             <button
                               onClick={() => navigate(`/rapport/${fiche._id}`)}
@@ -264,6 +265,8 @@ const FichesAnalyses = () => {
                               </svg>
                             </button>
                           )}
+                          
+                          {/* Bouton Voir le PV (toujours visible) */}
                           <button
                             onClick={() => navigate(`/rapport/${fiche._id}?view=pdf`)}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -274,7 +277,7 @@ const FichesAnalyses = () => {
                             </svg>
                           </button>
                           
-                          {/* BOUTON SUPPRIMER */}
+                          {/* Bouton Supprimer (TOUJOURS visible) */}
                           <button
                             onClick={() => openDeleteModal(fiche._id, fiche.patientId?.nom, fiche.patientId?.prenom)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
