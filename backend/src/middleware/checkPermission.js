@@ -32,7 +32,7 @@ const PERMISSIONS = {
   'VIEW_FICHES': ['super_admin', 'admin', 'manager_labo', 'biologiste', 'technicien'],
   'CREATE_FICHE': ['super_admin', 'admin', 'manager_labo', 'biologiste', 'technicien', 'secretaire'],
   'UPDATE_FICHE': ['super_admin', 'admin', 'manager_labo', 'biologiste'],
-  'DELETE_FICHE': ['super_admin', 'admin', 'manager_labo'],
+  'DELETE_FICHE': ['super_admin', 'admin', 'manager_labo','technicien'],
   
   // Rapports
   'VIEW_RAPPORTS': ['super_admin', 'admin', 'manager_labo', 'biologiste'],

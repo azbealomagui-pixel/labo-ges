@@ -105,7 +105,7 @@ const FichesAnalyses = () => {
   };
 
   // ===== CONFIRMER LA SUPPRESSION =====
-  /*const handleConfirmDelete = async () => {
+  const handleConfirmDelete = async () => {
     try {
       await api.delete(`/fiches-analyses/${deleteModal.ficheId}`);
       toast.success(`🗑️ Fiche de ${deleteModal.patientNom} supprimée`);
@@ -115,10 +115,10 @@ const FichesAnalyses = () => {
       console.error('❌ Erreur suppression:', error);
       toast.error('Erreur lors de la suppression');
     }
-  };*/
+  };
 
 
-  // ===== CONFIRMER LA SUPPRESSION (VERSION AMÉLIORÉE) =====
+  /*// ===== CONFIRMER LA SUPPRESSION (VERSION AMÉLIORÉE) =====
   const handleConfirmDelete = async () => {
     try {
       console.log('🗑️ Suppression de la fiche:', deleteModal.ficheId);
@@ -148,7 +148,7 @@ const FichesAnalyses = () => {
         toast.error(error.response?.data?.message || 'Erreur lors de la suppression');
       }
     }
-  };
+  };*/
 
 
 
