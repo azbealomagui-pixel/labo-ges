@@ -32,13 +32,14 @@ const auditLogSchema = new mongoose.Schema({
       'UPDATE_ANALYSE',
       'DELETE_ANALYSE',
       'CREATE_DEVIS',
-      'VALIDATE_RAPPORT'
+      'VALIDATE_RAPPORT',
+      'DELETE_FICHE'
     ]
   },
   cible: {
     type: {
       type: String,
-      enum: ['User', 'Patient', 'Analyse', 'Devis', 'Rapport']
+      enum: ['User', 'Patient', 'Analyse', 'Devis', 'Rapport', 'FicheAnalyse']
     },
     id: mongoose.Schema.Types.ObjectId,
     nom: String
