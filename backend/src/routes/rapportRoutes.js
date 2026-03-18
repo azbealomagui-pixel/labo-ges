@@ -1,7 +1,7 @@
 // ===========================================
 // ROUTES: rapportRoutes.js
 // RÔLE: Gestion des rapports finaux
-// VERSION: Corrigée avec authentification et permissions
+// VERSION: Finale avec sauvegarde persistante
 // ===========================================
 
 const express = require('express');
@@ -10,8 +10,8 @@ const FicheAnalyse = require('../models/FicheAnalyse');
 const Analyse = require('../models/Analyse');
 const Patient = require('../models/Patient');
 const User = require('../models/User');
-const { authenticate } = require('../middleware/auth'); // ← AJOUT
-const { checkPermission } = require('../middleware/checkPermission'); // ← AJOUT
+const { authenticate } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/checkPermission');
 const router = express.Router();
 
 // ===== CRÉER UN RAPPORT À PARTIR D'UNE FICHE =====
@@ -19,6 +19,17 @@ router.post('/from-fiche/:ficheId', authenticate, checkPermission('CREATE_RAPPOR
   try {
     const { ficheId } = req.params;
     const { validePar, resultats } = req.body;
+
+    // Vérifier si un rapport existe déjà
+    const existingRapport = await Rapport.findOne({ ficheAnalyseId: ficheId });
+    if (existingRapport) {
+      console.log('📋 Rapport déjà existant, renvoi de l\'existant');
+      return res.status(200).json({
+        success: true,
+        message: 'Rapport déjà existant',
+        rapport: existingRapport
+      });
+    }
 
     // Récupérer la fiche d'analyse
     const fiche = await FicheAnalyse.findById(ficheId)
@@ -55,6 +66,7 @@ router.post('/from-fiche/:ficheId', authenticate, checkPermission('CREATE_RAPPOR
     });
 
     await nouveauRapport.save();
+    console.log('✅ Nouveau rapport créé:', nouveauRapport._id);
 
     res.status(201).json({
       success: true,
@@ -71,11 +83,21 @@ router.post('/from-fiche/:ficheId', authenticate, checkPermission('CREATE_RAPPOR
   }
 });
 
-// ===== METTRE À JOUR LES RÉSULTATS =====
+// ===== METTRE À JOUR LES RÉSULTATS (VERSION CORRIGÉE) =====
 router.put('/:id/resultats', authenticate, checkPermission('UPDATE_RAPPORT'), async (req, res) => {
   try {
     const { resultats } = req.body;
-    const rapport = await Rapport.findById(req.params.id);
+    const rapportId = req.params.id;
+    
+    console.log(`📥 Sauvegarde de ${resultats?.length || 0} résultats pour le rapport ${rapportId}`);
+    console.log('📦 Données reçues:', JSON.stringify(resultats).substring(0, 200) + '...');
+
+    // Utiliser findByIdAndUpdate avec l'opérateur $set pour forcer la mise à jour
+    const rapport = await Rapport.findByIdAndUpdate(
+      rapportId,
+      { $set: { resultats: resultats } },
+      { new: true, runValidators: true }
+    );
 
     if (!rapport) {
       return res.status(404).json({
@@ -84,9 +106,16 @@ router.put('/:id/resultats', authenticate, checkPermission('UPDATE_RAPPORT'), as
       });
     }
 
-    // Mettre à jour les résultats
-    rapport.resultats = resultats;
-    await rapport.save();
+    console.log(`✅ ${resultats?.length || 0} résultats sauvegardés en base`);
+    console.log('📤 Rapport après sauvegarde:', {
+      id: rapport._id,
+      statut: rapport.statut,
+      nbResultats: rapport.resultats?.length,
+      premierResultat: rapport.resultats?.[0] ? {
+        valeur: rapport.resultats[0].valeur,
+        interpretation: rapport.resultats[0].interpretation
+      } : null
+    });
 
     res.json({
       success: true,
@@ -126,6 +155,7 @@ router.patch('/:id/valider', authenticate, checkPermission('VALIDATE_RAPPORT'), 
     rapport.qrCode = Buffer.from(qrData).toString('base64');
 
     await rapport.save();
+    console.log('✅ Rapport validé:', rapport._id);
 
     res.json({
       success: true,
@@ -154,6 +184,14 @@ router.get('/:id', authenticate, checkPermission('VIEW_RAPPORTS'), async (req, r
       return res.status(404).json({
         success: false,
         message: 'Rapport non trouvé'
+      });
+    }
+
+    console.log(`📤 Rapport ${rapport._id} chargé avec ${rapport.resultats?.length || 0} résultats`);
+    if (rapport.resultats?.length > 0) {
+      console.log('📊 Premier résultat:', {
+        valeur: rapport.resultats[0].valeur,
+        interpretation: rapport.resultats[0].interpretation
       });
     }
 
