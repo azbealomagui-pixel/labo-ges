@@ -90,6 +90,7 @@ const RapportForm = () => {
       const signature = prompt('Entrez votre signature:');
       if (!signature) return;
 
+      console.log('1️⃣ Envoi de la validation...');
       const response = await api.patch(`/rapports/${rapport._id}/valider`, {
         signature,
         cachet: 'Cachet officiel'
@@ -98,19 +99,31 @@ const RapportForm = () => {
       if (response.data.success) {
         toast.success('✅ Rapport validé');
         
+        console.log('2️⃣ Génération du PDF...');
+        console.log('📦 Données du rapport:', response.data.rapport);
+        
         try {
-          // Générer le PDF
-          console.log('📄 Génération du PDF...');
           const doc = await genererPDFRapport(response.data.rapport, user);
           
+          console.log('3️⃣ Résultat de genererPDFRapport:', doc ? '✅ OK' : '❌ null');
+          
           if (doc) {
-            console.log('✅ PDF généré avec succès');
+            console.log('4️⃣ Création du blob...');
             const pdfBlob = doc.output('blob');
+            console.log('📦 Taille du blob:', pdfBlob.size, 'octets');
+            
             const url = URL.createObjectURL(pdfBlob);
+            console.log('5️⃣ URL créée:', url);
+            
             window.open(url, '_blank');
-            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            console.log('6️⃣ Nouvel onglet ouvert');
+            
+            setTimeout(() => {
+              URL.revokeObjectURL(url);
+              console.log('7️⃣ URL révoquée');
+            }, 1000);
           } else {
-            console.error('❌ doc est null');
+            console.error('❌ doc est null - erreur dans genererPDFRapport');
             toast.error('Erreur génération PDF');
           }
         } catch (pdfError) {
