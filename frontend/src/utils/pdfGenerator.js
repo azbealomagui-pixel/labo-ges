@@ -1,6 +1,6 @@
 // ===========================================
 // UTILITAIRE: pdfGenerator.js
-// RÔLE: Générer des PDF professionnels
+// RÔLE: Générer des PDF professionnels avec logo personnalisé
 // VERSION: Finale - Sans aucun warning ESLint
 // ===========================================
 
@@ -45,15 +45,53 @@ export const telechargerPDF = (doc, nomFichier = 'document.pdf') => {
 // ===========================================
 
 /**
- * Ajoute le logo au PDF
+ * Ajoute le logo par défaut (fallback)
  * @param {Object} doc - Instance jsPDF
  */
-const ajouterLogo = async (doc) => {
+const fallbackLogo = (doc) => {
   try {
     const logoUrl = '/src/assets/images/logos/logo-lab.png';
     doc.addImage(logoUrl, 'PNG', 14, 10, 30, 15);
   } catch {
     console.log('Logo non trouvé, génération sans logo');
+  }
+};
+
+/**
+ * Ajoute le logo au PDF (version avec URL distante)
+ * @param {Object} doc - Instance jsPDF
+ * @param {string} logoUrl - URL du logo (peut être null)
+ */
+const ajouterLogo = async (doc, logoUrl) => {
+  try {
+    if (logoUrl) {
+      try {
+        // Télécharger l'image depuis l'URL
+        const response = await fetch(logoUrl);
+        const blob = await response.blob();
+        
+        // Convertir en base64
+        const reader = new FileReader();
+        reader.readAsDataURL(blob);
+        
+        await new Promise((resolve) => {
+          reader.onloadend = () => {
+            try {
+              doc.addImage(reader.result, 'PNG', 14, 10, 30, 15);
+            } catch {
+              fallbackLogo(doc);
+            }
+            resolve();
+          };
+        });
+      } catch {
+        fallbackLogo(doc);
+      }
+    } else {
+      fallbackLogo(doc);
+    }
+  } catch {
+    fallbackLogo(doc);
   }
 };
 
@@ -94,7 +132,10 @@ export const genererPDFDevis = async (devis, laboratoire, utilisateur) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     
-    await ajouterLogo(doc);
+    // Logo personnalisé
+    const logoUrl = laboratoire?.logo ? 
+      `${laboratoire.baseURL || ''}${laboratoire.logo}` : null;
+    await ajouterLogo(doc, logoUrl);
     
     // En-tête avec nom de l'entreprise
     doc.setFontSize(24);
@@ -240,7 +281,10 @@ export const genererPDFPatient = async (patient, laboratoire, utilisateur) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     
-    await ajouterLogo(doc);
+    // Logo personnalisé
+    const logoUrl = laboratoire?.logo ? 
+      `${laboratoire.baseURL || ''}${laboratoire.logo}` : null;
+    await ajouterLogo(doc, logoUrl);
     
     // En-tête avec nom de l'entreprise
     doc.setFontSize(24);
@@ -337,7 +381,10 @@ export const genererPDFAnalyse = async (analyse, laboratoire, utilisateur) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     
-    await ajouterLogo(doc);
+    // Logo personnalisé
+    const logoUrl = laboratoire?.logo ? 
+      `${laboratoire.baseURL || ''}${laboratoire.logo}` : null;
+    await ajouterLogo(doc, logoUrl);
     
     // En-tête avec nom de l'entreprise
     doc.setFontSize(24);
@@ -465,13 +512,10 @@ export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     
-    // Logo
-    try {
-      const logoUrl = '/src/assets/images/logos/logo-lab.png';
-      doc.addImage(logoUrl, 'PNG', 14, 10, 30, 15);
-    } catch {
-      console.log('Logo non trouvé');
-    }
+    // Logo personnalisé
+    const logoUrl = laboratoire?.logo ? 
+      `${laboratoire.baseURL || ''}${laboratoire.logo}` : null;
+    await ajouterLogo(doc, logoUrl);
 
     // En-tête avec nom de l'entreprise
     doc.setFontSize(24);

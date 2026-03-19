@@ -7,6 +7,9 @@ const express = require('express');
 const Espace = require('../models/Espace');
 const User = require('../models/User');
 const router = express.Router();
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 // ===== MIDDLEWARE D'AUTHENTIFICATION (à importer) =====
 // const { protect } = require('../middleware/auth');
@@ -120,6 +123,42 @@ router.post('/', async (req, res) => {
     });
   }
 });
+
+
+
+// ===== CONFIGURATION DE MULTER =====
+const storage = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadDir = path.join(__dirname, '../../uploads/logos');
+    // Créer le dossier s'il n'existe pas
+    if (!fs.existsSync(uploadDir)) {
+      fs.mkdirSync(uploadDir, { recursive: true });
+    }
+    cb(null, uploadDir);
+  },
+  filename: function (req, file, cb) {
+    const espaceId = req.params.espaceId;
+    const extension = path.extname(file.originalname);
+    cb(null, `logo-${espaceId}${extension}`);
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  // Accepter seulement les images
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/svg+xml'];
+  if (allowedTypes.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Format de fichier non supporté. Utilisez JPG, PNG, GIF ou SVG.'), false);
+  }
+};
+
+const upload = multer({ 
+  storage: storage,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB max
+  fileFilter: fileFilter
+});
+
 
 // ===========================================
 // LISTER TOUS LES ESPACES (GET)
@@ -547,6 +586,87 @@ router.put('/:espaceId/membres/:userId', async (req, res) => {
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
+    });
+  }
+});
+
+
+// ===========================================
+// UPLOADER LE LOGO (POST)
+// ===========================================
+router.post('/:espaceId/logo', authenticate, checkPermission('UPDATE_SETTINGS'), upload.single('logo'), async (req, res) => {
+  try {
+    const { espaceId } = req.params;
+    
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'Aucun fichier téléchargé'
+      });
+    }
+
+    // Générer l'URL du logo
+    const logoUrl = `/uploads/logos/${req.file.filename}`;
+    
+    // Mettre à jour l'espace avec l'URL du logo
+    const espace = await Espace.findByIdAndUpdate(
+      espaceId,
+      { logo: logoUrl },
+      { new: true }
+    );
+
+    res.json({
+      success: true,
+      message: 'Logo téléchargé avec succès',
+      logo: logoUrl
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur upload logo:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Erreur lors du téléchargement'
+    });
+  }
+});
+
+// ===========================================
+// SUPPRIMER LE LOGO (DELETE)
+// ===========================================
+router.delete('/:espaceId/logo', authenticate, checkPermission('UPDATE_SETTINGS'), async (req, res) => {
+  try {
+    const { espaceId } = req.params;
+    
+    const espace = await Espace.findById(espaceId);
+    if (!espace) {
+      return res.status(404).json({
+        success: false,
+        message: 'Espace non trouvé'
+      });
+    }
+
+    // Supprimer le fichier physique
+    if (espace.logo) {
+      const filePath = path.join(__dirname, '../../', espace.logo);
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+    }
+
+    // Mettre à jour l'espace
+    espace.logo = null;
+    await espace.save();
+
+    res.json({
+      success: true,
+      message: 'Logo supprimé avec succès'
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur suppression logo:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Erreur lors de la suppression'
     });
   }
 });

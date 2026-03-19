@@ -62,7 +62,7 @@ const espaceRoutes = require('./src/routes/espaceRoutes');
 const rapportRoutes = require('./src/routes/rapportRoutes');
 const messageRoutes = require('./src/routes/messageRoutes');
 const abonnementRoutes = require('./src/routes/abonnementRoutes');
-
+const path = require('path');
 
 
 // ===== 8. APPLIQUER LE RATE LIMITING STRICT =====
@@ -82,6 +82,7 @@ app.use('/api/rapports', rapportRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/abonnements', abonnementRoutes);
 app.use('/api/patients', patientRoutes);
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 
 

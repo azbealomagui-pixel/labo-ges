@@ -7,7 +7,7 @@ const espaceSchema = new mongoose.Schema({
   nom: {
     type: String,
     required: [true, 'Le nom de l\'espace est requis'],
-    unique: true,        // ← DÉJÀ UN INDEX
+    unique: true,  
     trim: true,
     minlength: [3, 'Le nom doit contenir au moins 3 caractères'],
     maxlength: [100, 'Le nom ne peut pas dépasser 100 caractères']
@@ -68,6 +68,13 @@ const espaceSchema = new mongoose.Schema({
       default: 'actif'
     }
   },
+
+  // ===== NOUVEAU CHAMP POUR LE LOGO =====
+  logo: {
+    type: String,  // URL ou base64 du logo
+    default: null
+  },
+
   actif: {
     type: Boolean,
     default: true
@@ -81,12 +88,8 @@ const espaceSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// ===== INDEX (GARDER SEULEMENT CEUX QUI NE SONT PAS DÉJÀ CRÉÉS) =====
-// espaceSchema.index({ nom: 1 });        // ← À SUPPRIMER (déjà avec unique: true)
-// espaceSchema.index({ numeroLicence: 1 }); // ← À SUPPRIMER (déjà avec unique: true)
-
 // Garder seulement l'index sur email (pas unique)
-espaceSchema.index({ email: 1 });          // ← À GARDER (pas de unique:true sur email)
+espaceSchema.index({ email: 1 });          
 
 // ===== VIRTUELS =====
 espaceSchema.virtual('employesCount', {
