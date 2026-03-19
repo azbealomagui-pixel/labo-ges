@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: Patients
 // RÔLE: Liste, recherche et gestion des patients
-// VERSION: Corrigée avec espaceId au lieu de laboratoireId
+// VERSION: Finale avec affichage entreprise
 // ===========================================
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -22,7 +22,7 @@ const Patients = () => {
   const [filteredPatients, setFilteredPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [espace, setEspace] = useState(null); // Renommé de laboratoire à espace
+  const [espace, setEspace] = useState(null);
 
   // ===== ÉTAT POUR LA MODALE DE SUPPRESSION =====
   const [deleteModal, setDeleteModal] = useState({
@@ -35,8 +35,8 @@ const Patients = () => {
   const fetchAllPatients = useCallback(async () => {
     try {
       setLoading(true);
-      // CHANGEMENT : laboratoireId → espaceId
-      const response = await api.get(`/patients/labo/${user.espaceId}`);
+      const espaceId = user?.laboratoireId || user?.espaceId;
+      const response = await api.get(`/patients/labo/${espaceId}`);
       const data = response.data.patients || [];
       setPatients(data);
       setFilteredPatients(data);
@@ -49,23 +49,23 @@ const Patients = () => {
     } finally {
       setLoading(false);
     }
-  }, [user.espaceId]); // CHANGEMENT : dépendance
+  }, [user]);
 
-  // ===== CHARGEMENT DE L'ESPACE (anciennement laboratoire) =====
+  // ===== CHARGEMENT DE L'ESPACE =====
   useEffect(() => {
     const fetchEspace = async () => {
       try {
-        // CHANGEMENT : /laboratoires → /espaces
-        const response = await api.get(`/espaces/${user.espaceId}`);
+        const espaceId = user?.laboratoireId || user?.espaceId;
+        const response = await api.get(`/espaces/${espaceId}`);
         setEspace(response.data.espace);
       } catch (error) {
         console.error('❌ Erreur chargement espace:', error.message);
       }
     };
-    if (user?.espaceId) {
+    if (user?.espaceId || user?.laboratoireId) {
       fetchEspace();
     }
-  }, [user?.espaceId]); // CHANGEMENT : dépendance
+  }, [user]);
 
   // ===== CHARGEMENT INITIAL =====
   useEffect(() => {
@@ -171,7 +171,6 @@ const Patients = () => {
   // ===== GÉNÉRATION PDF =====
   const handleOpenPDF = async (patient) => {
     try {
-      // CHANGEMENT : laboratoire → espace (mais le paramètre s'appelle encore laboratoire dans la fonction)
       const doc = await genererPDFPatient(patient, espace);
       if (doc) {
         const url = URL.createObjectURL(doc.output('blob'));
@@ -336,6 +335,9 @@ const Patients = () => {
                             month: '2-digit',
                             year: 'numeric'
                           })} • {patient.sexe === 'M' ? 'Homme' : patient.sexe === 'F' ? 'Femme' : patient.sexe}
+                        </div>
+                        <div className="text-xs text-gray-400 mt-1">
+                          {espace?.nom || 'LaboGes'}
                         </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

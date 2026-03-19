@@ -96,14 +96,14 @@ export const genererPDFDevis = async (devis, laboratoire, utilisateur) => {
     
     await ajouterLogo(doc);
     
-    // En-tête
+    // En-tête avec nom de l'entreprise
     doc.setFontSize(24);
     doc.setTextColor(37, 99, 235);
-    doc.text('LABOGES', 50, 20);
-    
+    doc.text(laboratoire?.nom || 'LABOGES', 50, 20);
+
     doc.setFontSize(10);
     doc.setTextColor(75, 85, 99);
-    doc.text('Application de gestion de laboratoire', 50, 28);
+    doc.text(laboratoire?.adresse || 'Application de gestion de laboratoire', 50, 28);
     
     // Infos laboratoire
     doc.setFontSize(11);
@@ -111,7 +111,7 @@ export const genererPDFDevis = async (devis, laboratoire, utilisateur) => {
     doc.text('Laboratoire :', 14, 45);
     doc.setFontSize(10);
     doc.setTextColor(75, 85, 99);
-    doc.text(laboratoire?.nom || 'Non spécifié', 14, 52);
+    doc.text(laboratoire?.nom || 'Laboratoire', 14, 52);
     doc.text(laboratoire?.adresse || '', 14, 59);
     doc.text(`Tél: ${laboratoire?.telephone || ''}`, 14, 66);
     doc.text(`Email: ${laboratoire?.email || ''}`, 14, 73);
@@ -210,7 +210,7 @@ export const genererPDFDevis = async (devis, laboratoire, utilisateur) => {
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(
-      `Document généré par ${utilisateur?.prenom || ''} ${utilisateur?.nom || ''} - ${new Date().toLocaleString()}`,
+      `Document LaboGes : ${utilisateur?.prenom || ''} ${utilisateur?.nom || ''} - ${new Date().toLocaleString()}`,
       pageWidth / 2,
       280,
       { align: 'center' }
@@ -232,19 +232,20 @@ export const genererPDFDevis = async (devis, laboratoire, utilisateur) => {
  * Génère une fiche patient au format PDF
  * @param {Object} patient - Données du patient
  * @param {Object} laboratoire - Infos du laboratoire
+ * @param {Object} utilisateur - Utilisateur connecté
  * @returns {Object} Instance jsPDF
  */
-export const genererPDFPatient = async (patient, laboratoire) => {
+export const genererPDFPatient = async (patient, laboratoire, utilisateur) => {
   try {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     
     await ajouterLogo(doc);
     
-    // En-tête
+    // En-tête avec nom de l'entreprise
     doc.setFontSize(24);
     doc.setTextColor(37, 99, 235);
-    doc.text('LABOGES', 50, 20);
+    doc.text(laboratoire?.nom || 'LABOGES', 50, 20);
     
     doc.setFontSize(10);
     doc.setTextColor(75, 85, 99);
@@ -306,7 +307,7 @@ export const genererPDFPatient = async (patient, laboratoire) => {
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(
-      `Document généré le ${new Date().toLocaleString()}`,
+      `Document LaboGes : ${utilisateur?.prenom || ''} ${utilisateur?.nom || ''} - ${new Date().toLocaleString()}`,
       pageWidth / 2,
       280,
       { align: 'center' }
@@ -328,19 +329,20 @@ export const genererPDFPatient = async (patient, laboratoire) => {
  * Génère une fiche d'analyse au format PDF
  * @param {Object} analyse - Données de l'analyse
  * @param {Object} laboratoire - Infos du laboratoire
+ * @param {Object} utilisateur - Utilisateur connecté
  * @returns {Object} Instance jsPDF
  */
-export const genererPDFAnalyse = async (analyse, laboratoire) => {
+export const genererPDFAnalyse = async (analyse, laboratoire, utilisateur) => {
   try {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
     
     await ajouterLogo(doc);
     
-    // En-tête
+    // En-tête avec nom de l'entreprise
     doc.setFontSize(24);
     doc.setTextColor(37, 99, 235);
-    doc.text('LABOGES', 50, 20);
+    doc.text(laboratoire?.nom || 'LABOGES', 50, 20);
     
     doc.setFontSize(10);
     doc.setTextColor(75, 85, 99);
@@ -433,7 +435,7 @@ export const genererPDFAnalyse = async (analyse, laboratoire) => {
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(
-      `Document généré le ${new Date().toLocaleString()}`,
+      `Document LaboGes : ${utilisateur?.prenom || ''} ${utilisateur?.nom || ''} - ${new Date().toLocaleString()}`,
       pageWidth / 2,
       280,
       { align: 'center' }
@@ -455,9 +457,10 @@ export const genererPDFAnalyse = async (analyse, laboratoire) => {
  * Génère un rapport final (PV) pour les analyses d'un patient
  * @param {Object} rapport - Données du rapport
  * @param {Object} utilisateur - Utilisateur connecté
+ * @param {Object} laboratoire - Infos du laboratoire
  * @returns {Object} Instance jsPDF
  */
-export const genererPDFRapport = async (rapport, utilisateur) => {
+export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
   try {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.width;
@@ -470,10 +473,10 @@ export const genererPDFRapport = async (rapport, utilisateur) => {
       console.log('Logo non trouvé');
     }
 
-    // En-tête
-    doc.setFontSize(20);
+    // En-tête avec nom de l'entreprise
+    doc.setFontSize(24);
     doc.setTextColor(37, 99, 235);
-    doc.text('LABOGES', 50, 20);
+    doc.text(laboratoire?.nom || 'LABOGES', 50, 20);
     
     doc.setFontSize(10);
     doc.setTextColor(75, 85, 99);
@@ -585,7 +588,7 @@ export const genererPDFRapport = async (rapport, utilisateur) => {
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(
-      `Document généré par LABOGES - Version finale`,
+      `Document LaboGes : ${utilisateur?.prenom || ''} ${utilisateur?.nom || ''} - ${new Date().toLocaleString()}`,
       pageWidth / 2,
       280,
       { align: 'center' }

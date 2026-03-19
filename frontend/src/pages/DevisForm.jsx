@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: DevisForm
 // RÔLE: Création/Modification d'un devis
-// VERSION: Corrigée avec espaceId
+// VERSION: Finale avec affichage entreprise
 // ===========================================
 
 import React, { useState, useEffect } from 'react';
@@ -279,23 +279,30 @@ const DevisForm = () => {
               </div>
 
               <div className="border rounded-lg max-h-60 overflow-y-auto">
-                {filteredPatients.map(p => (
-                  <div
-                    key={p._id}
-                    onClick={() => setSelectedPatient(p)}
-                    className={`p-3 cursor-pointer hover:bg-gray-50 border-b ${
-                      selectedPatient?._id === p._id ? 'bg-primary-50 border-l-4 border-l-primary-600' : ''
-                    }`}
-                  >
-                    <div className="font-medium">{p.nom} {p.prenom}</div>
-                    <div className="text-sm text-gray-600">{p.telephone}</div>
+                {filteredPatients.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    Aucun patient trouvé
                   </div>
-                ))}
+                ) : (
+                  filteredPatients.map(p => (
+                    <div
+                      key={p._id}
+                      onClick={() => setSelectedPatient(p)}
+                      className={`p-3 cursor-pointer hover:bg-gray-50 border-b ${
+                        selectedPatient?._id === p._id ? 'bg-primary-50 border-l-4 border-l-primary-600' : ''
+                      }`}
+                    >
+                      <div className="font-medium">{p.nom} {p.prenom}</div>
+                      <div className="text-sm text-gray-600">{p.telephone}</div>
+                    </div>
+                  ))
+                )}
               </div>
 
               {selectedPatient && (
                 <div className="mt-4 p-3 bg-green-50 rounded-lg">
-                  Patient : {selectedPatient.nom} {selectedPatient.prenom}
+                  <div className="font-medium">{selectedPatient.nom} {selectedPatient.prenom}</div>
+                  <div className="text-sm text-gray-600">{selectedPatient.telephone}</div>
                 </div>
               )}
             </div>
@@ -316,21 +323,27 @@ const DevisForm = () => {
               </div>
 
               <div className="border rounded-lg max-h-60 overflow-y-auto mb-4">
-                {filteredAnalyses.map(a => (
-                  <div
-                    key={a._id}
-                    onClick={() => addAnalyse(a)}
-                    className="p-3 cursor-pointer hover:bg-gray-50 border-b flex justify-between items-center"
-                  >
-                    <div>
-                      <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded mr-2">{a.code}</span>
-                      {a.nom?.fr || a.nom}
-                    </div>
-                    <div className="text-primary-600 font-medium">
-                      {a.prix?.valeur || 0} {a.prix?.devise || selectedDevise}
-                    </div>
+                {filteredAnalyses.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    Aucune analyse trouvée
                   </div>
-                ))}
+                ) : (
+                  filteredAnalyses.map(a => (
+                    <div
+                      key={a._id}
+                      onClick={() => addAnalyse(a)}
+                      className="p-3 cursor-pointer hover:bg-gray-50 border-b flex justify-between items-center"
+                    >
+                      <div>
+                        <span className="font-mono text-sm bg-gray-100 px-2 py-1 rounded mr-2">{a.code}</span>
+                        {a.nom?.fr || a.nom}
+                      </div>
+                      <div className="text-primary-600 font-medium">
+                        {a.prix?.valeur || 0} {a.prix?.devise || selectedDevise}
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
 
               {/* Panier */}

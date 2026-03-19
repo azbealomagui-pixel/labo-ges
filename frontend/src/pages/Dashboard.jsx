@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: Dashboard
 // RÔLE: Tableau de bord avec statistiques réelles
-// VERSION: Sans warning ESLint
+// VERSION: Finale avec affichage entreprise
 // ===========================================
 
 import React, { useEffect, useState } from 'react';
@@ -37,22 +37,25 @@ const Dashboard = () => {
     labels: [],
     datasets: []
   });
+  const [entrepriseNom, setEntrepriseNom] = useState('');
 
   // ===== CHARGEMENT DES DONNÉES =====
   useEffect(() => {
     const fetchData = async () => {
       try {
+        const espaceId = user?.laboratoireId || user?.espaceId;
+        
         // Compter les patients
-        const patientsRes = await api.get(`/patients/labo/${user.espaceId}`);
+        const patientsRes = await api.get(`/patients/labo/${espaceId}`);
         // Compter les analyses
-        const analysesRes = await api.get(`/analyses/labo/${user.espaceId}`);
+        const analysesRes = await api.get(`/analyses/labo/${espaceId}`);
         // Compter les devis
-        const devisRes = await api.get(`/devis/labo/${user.espaceId}`);
+        const devisRes = await api.get(`/devis/labo/${espaceId}`);
         
         // Récupérer les stats rapides (si disponible)
         let caMensuel = 0;
         try {
-          const quickRes = await api.get(`/stats/labo/${user.espaceId}/quick`);
+          const quickRes = await api.get(`/stats/labo/${espaceId}/quick`);
           caMensuel = quickRes.data.quickStats?.ca || 0;
         } catch (error) {
           console.log('Stats rapides non disponibles:', error.message);
@@ -67,7 +70,7 @@ const Dashboard = () => {
 
         // Données pour le graphique (évolution mensuelle)
         try {
-          const evoRes = await api.get(`/stats/labo/${user.espaceId}?period=6months`);
+          const evoRes = await api.get(`/stats/labo/${espaceId}?period=6months`);
           if (evoRes.data.evolution && evoRes.data.evolution.length > 0) {
             setChartData({
               labels: evoRes.data.evolution.map(item => item.month || 'Mois'),
@@ -102,6 +105,20 @@ const Dashboard = () => {
     };
 
     if (user) fetchData();
+  }, [user]);
+
+  // ===== CHARGEMENT DES INFOS DE L'ESPACE =====
+  useEffect(() => {
+    const fetchEspace = async () => {
+      try {
+        const espaceId = user?.laboratoireId || user?.espaceId;
+        const response = await api.get(`/espaces/${espaceId}`);
+        setEntrepriseNom(response.data.espace.nom);
+      } catch (error) {
+        console.error('Erreur chargement espace:', error);
+      }
+    };
+    if (user) fetchEspace();
   }, [user]);
 
   // ===== CARTE DE STATISTIQUE RÉUTILISABLE =====
@@ -228,7 +245,15 @@ const Dashboard = () => {
                   {user?.prenom} {user?.nom}
                 </p>
                 <p className="text-xs text-gray-500">
-                  {user?.role === 'manager_labo' ? 'Directeur' : 'Technicien'}
+                  {user?.role === 'manager_labo' ? 'Directeur' : 
+                   user?.role === 'admin' ? 'Administrateur' :
+                   user?.role === 'biologiste' ? 'Biologiste' :
+                   user?.role === 'technicien' ? 'Technicien' :
+                   user?.role === 'secretaire' ? 'Secrétaire' :
+                   user?.role === 'comptable' ? 'Comptable' : user?.role}
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  à {entrepriseNom || 'LaboGes'}
                 </p>
               </div>
 
