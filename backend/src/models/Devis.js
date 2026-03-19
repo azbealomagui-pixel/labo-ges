@@ -1,7 +1,7 @@
 // ===========================================
 // MODÈLE: Devis.js
 // RÔLE: Modèle pour les devis
-// VERSION: Corrigée avec gestion d'erreurs
+// VERSION: Corrigée (sans erreur next)
 // ===========================================
 
 const mongoose = require('mongoose');
@@ -56,10 +56,19 @@ const devisSchema = new mongoose.Schema({
 // ===== MIDDLEWARE PRE-SAVE CORRIGÉ =====
 devisSchema.pre('save', function(next) {
   try {
+    // Vérifier que next est bien une fonction
+    if (typeof next !== 'function') {
+      console.error('❌ next n\'est pas une fonction dans pre-save');
+      // Sortir sans appeler next (Mongoose gère)
+      return;
+    }
+
+    // Si pas de lignes, on passe
     if (!this.lignes || this.lignes.length === 0) {
       return next();
     }
 
+    // Calcul du sous-total
     let sousTotalCalc = 0;
     this.lignes.forEach(ligne => {
       const prixU = ligne.prixUnitaire || 0;
@@ -70,9 +79,11 @@ devisSchema.pre('save', function(next) {
       sousTotalCalc += totalLigne;
     });
 
+    // Appliquer la remise
     const remise = this.remiseGlobale || 0;
     const totalCalc = sousTotalCalc * (1 - remise / 100);
 
+    // Mettre à jour les champs
     this.sousTotal = {
       valeur: Number(sousTotalCalc.toFixed(2)),
       devise: this.devise || 'EUR'
@@ -90,5 +101,34 @@ devisSchema.pre('save', function(next) {
     return next(error);
   }
 });
+
+// ===== MÉTHODE POUR AJOUTER À L'HISTORIQUE =====
+devisSchema.methods.ajouterHistorique = function(action, userId, details = {}) {
+  if (!this.historique) this.historique = [];
+  this.historique.push({
+    action,
+    user: userId,
+    date: new Date(),
+    details
+  });
+};
+
+
+/*// ===== MÉTHODE POUR AJOUTER À L'HISTORIQUE =====
+devisSchema.methods.ajouterHistorique = function(action, userId, details = {}) {
+  try {
+    if (!this.historique) this.historique = [];
+    this.historique.push({
+      action,
+      user: userId,
+      date: new Date(),
+      details
+    });
+    return true;
+  } catch (error) {
+    console.error('❌ Erreur ajout historique:', error);
+    return false;
+  }
+};*/
 
 module.exports = mongoose.model('Devis', devisSchema);
