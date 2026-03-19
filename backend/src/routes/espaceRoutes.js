@@ -6,11 +6,12 @@
 const express = require('express');
 const Espace = require('../models/Espace');
 const User = require('../models/User');
-const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-
+const { authenticate } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/checkPermission');
+const router = express.Router();
 // ===== MIDDLEWARE D'AUTHENTIFICATION (à importer) =====
 // const { protect } = require('../middleware/auth');
 
@@ -592,7 +593,7 @@ router.put('/:espaceId/membres/:userId', async (req, res) => {
 
 
 // ===========================================
-// UPLOADER LE LOGO (POST)
+// UPLOADER LE LOGO (POST) - VERSION CORRIGÉE
 // ===========================================
 router.post('/:espaceId/logo', authenticate, checkPermission('UPDATE_SETTINGS'), upload.single('logo'), async (req, res) => {
   try {
