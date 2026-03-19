@@ -1,12 +1,16 @@
-// ==================================
+// ===========================================
 // FICHIER: src/routes/devisRoutes.js 
-// AVEC: Calcul automatique des totaux
-// ==================================
+// RÔLE: Routes pour la gestion des devis
+// VERSION: Corrigée avec auth, permissions et audit
+// ===========================================
 
 const express = require('express');
 const Devis = require('../models/Devis');
 const Patient = require('../models/Patient');
 const Analyse = require('../models/Analyse');
+const AuditLog = require('../models/AuditLog');
+const { authenticate } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/checkPermission');
 const router = express.Router();
 
 // ===== FONCTION POUR GÉNÉRER UN NUMÉRO DE DEVIS =====
@@ -19,25 +23,29 @@ const genererNumero = async () => {
   return `DEV-${annee}${mois}${jour}-${random}`;
 };
 
-// ===== POST CRÉER UN DEVIS (AVEC CALCULS) =====
-router.post('/', async (req, res) => {
+// ===========================================
+// CRÉER UN DEVIS (POST)
+// ===========================================
+router.post('/', authenticate, checkPermission('CREATE_DEVIS'), async (req, res) => {
   try {
     const { 
-      laboratoireId, 
+      laboratoireId, espaceId,
       patientId, 
-      createdBy, 
       lignes, 
       remiseGlobale, 
       notes, 
       devise 
     } = req.body;
     
+    const espace = laboratoireId || espaceId;
+    const createdBy = req.user._id;
+
     // ===== VALIDATIONS =====
-    if (!laboratoireId || !patientId || !createdBy || !lignes || lignes.length === 0) {
+    if (!espace || !patientId || !lignes || lignes.length === 0) {
       return res.status(400).json({
         success: false,
         message: 'Données manquantes',
-        required: ['laboratoireId', 'patientId', 'createdBy', 'lignes']
+        required: ['laboratoireId/espaceId', 'patientId', 'lignes']
       });
     }
     
@@ -55,7 +63,6 @@ router.post('/', async (req, res) => {
     const lignesTraitees = [];
 
     for (const ligne of lignes) {
-      // Récupérer l'analyse complète pour avoir le prix
       const analyse = await Analyse.findById(ligne.analyseId);
       
       if (!analyse) {
@@ -65,7 +72,7 @@ router.post('/', async (req, res) => {
         });
       }
 
-      const prixUnitaire = analyse.prix?.valeur || 0;
+      const prixUnitaire = ligne.prixUnitaire || analyse.prix?.valeur || 0;
       const quantite = ligne.quantite || 1;
       const prixTotal = prixUnitaire * quantite;
       
@@ -76,10 +83,10 @@ router.post('/', async (req, res) => {
         code: analyse.code,
         nom: analyse.nom?.fr || analyse.nom,
         categorie: analyse.categorie,
-        prixUnitaire: prixUnitaire,
+        prixUnitaire,
         devise: ligne.devise || analyse.prix?.devise || 'EUR',
-        quantite: quantite,
-        prixTotal: prixTotal,
+        quantite,
+        prixTotal,
         observations: ligne.observations || ''
       });
     }
@@ -91,7 +98,7 @@ router.post('/', async (req, res) => {
     // ===== CRÉATION DU DEVIS =====
     const nouveauDevis = new Devis({
       numero: await genererNumero(),
-      laboratoireId,
+      laboratoireId: espace,
       patientId,
       createdBy,
       devise: devise || 'EUR',
@@ -108,10 +115,25 @@ router.post('/', async (req, res) => {
       notes: notes || '',
       statut: 'brouillon',
       dateEmission: new Date(),
-      dateValidite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // +30 jours
+      dateValidite: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     });
     
     await nouveauDevis.save();
+
+    // ===== JOURNALISATION =====
+    await AuditLog.create({
+      espaceId: espace,
+      utilisateurId: createdBy,
+      action: 'CREATE_DEVIS',
+      cible: {
+        type: 'Devis',
+        id: nouveauDevis._id,
+        nom: `${patient.prenom} ${patient.nom}`
+      },
+      details: { montant: total, devise: devise || 'EUR' },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
     
     // Peupler les références pour la réponse
     await nouveauDevis.populate('patientId', 'nom prenom telephone');
@@ -119,12 +141,12 @@ router.post('/', async (req, res) => {
     
     res.status(201).json({
       success: true,
-      message: 'Devis créé avec succès',
+      message: '✅ Devis créé avec succès',
       devis: nouveauDevis
     });
     
   } catch (error) {
-    console.error('Erreur création devis:', error);
+    console.error('❌ Erreur création devis:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -132,10 +154,14 @@ router.post('/', async (req, res) => {
   }
 });
 
-// ===== GET TOUS LES DEVIS D'UN LABORATOIRE =====
-router.get('/labo/:laboratoireId', async (req, res) => {
+// ===========================================
+// LISTER LES DEVIS D'UN ESPACE (GET)
+// ===========================================
+router.get('/labo/:espaceId', authenticate, checkPermission('VIEW_DEVIS'), async (req, res) => {
   try {
-    const devis = await Devis.find({ laboratoireId: req.params.laboratoireId })
+    const { espaceId } = req.params;
+    
+    const devis = await Devis.find({ laboratoireId: espaceId })
       .populate('patientId', 'nom prenom')
       .populate('createdBy', 'nom prenom')
       .sort({ dateEmission: -1 });
@@ -147,16 +173,18 @@ router.get('/labo/:laboratoireId', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Erreur:', error);
+    console.error('❌ Erreur listage devis:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message || 'Erreur serveur'
     });
   }
 });
 
-// ===== GET UN DEVIS PAR ID =====
-router.get('/:id', async (req, res) => {
+// ===========================================
+// OBTENIR UN DEVIS PAR ID (GET)
+// ===========================================
+router.get('/:id', authenticate, checkPermission('VIEW_DEVIS'), async (req, res) => {
   try {
     const devis = await Devis.findById(req.params.id)
       .populate('patientId')
@@ -176,24 +204,22 @@ router.get('/:id', async (req, res) => {
     });
     
   } catch (error) {
-    console.error('Erreur:', error);
+    console.error('❌ Erreur récupération devis:', error);
     res.status(500).json({
       success: false,
-      message: error.message
+      message: error.message || 'Erreur serveur'
     });
   }
 });
 
-
 // ===========================================
 // METTRE À JOUR UN DEVIS (PUT)
 // ===========================================
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticate, checkPermission('UPDATE_DEVIS'), async (req, res) => {
   try {
     const { id } = req.params;
     const { patientId, lignes, remiseGlobale, notes, devise } = req.body;
 
-    // Vérifier que le devis existe
     const devis = await Devis.findById(id);
     if (!devis) {
       return res.status(404).json({
@@ -202,7 +228,6 @@ router.put('/:id', async (req, res) => {
       });
     }
 
-    // Empêcher la modification si le devis est payé ou annulé
     if (devis.statut === 'paye' || devis.statut === 'annule') {
       return res.status(400).json({
         success: false,
@@ -256,7 +281,7 @@ router.put('/:id', async (req, res) => {
 
     // Ajouter à l'historique
     if (typeof devis.ajouterHistorique === 'function') {
-      devis.ajouterHistorique('MODIFICATION', req.body.userId, {
+      devis.ajouterHistorique('MODIFICATION', req.user._id, {
         date: new Date(),
         modifications: req.body
       });
@@ -264,14 +289,29 @@ router.put('/:id', async (req, res) => {
 
     await devis.save();
 
+    // ===== JOURNALISATION =====
+    await AuditLog.create({
+      espaceId: devis.laboratoireId,
+      utilisateurId: req.user._id,
+      action: 'UPDATE_DEVIS',
+      cible: {
+        type: 'Devis',
+        id: devis._id,
+        nom: `Devis ${devis.numero}`
+      },
+      details: { modifications: Object.keys(req.body) },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
+
     res.json({
       success: true,
-      message: 'Devis mis à jour avec succès',
+      message: '✅ Devis mis à jour',
       devis
     });
 
   } catch (error) {
-    console.error('Erreur mise à jour devis:', error);
+    console.error('❌ Erreur mise à jour devis:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -279,9 +319,10 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-
-// ===== SUPPRESSION PHYSIQUE D'UN DEVIS =====
-router.delete('/:id', async (req, res) => {
+// ===========================================
+// SUPPRIMER UN DEVIS (DELETE)
+// ===========================================
+router.delete('/:id', authenticate, checkPermission('DELETE_DEVIS'), async (req, res) => {
   try {
     const devis = await Devis.findByIdAndDelete(req.params.id);
     
@@ -292,27 +333,42 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    res.json({
-      success: true,
-      message: 'Devis supprimé définitivement'
+    // ===== JOURNALISATION =====
+    await AuditLog.create({
+      espaceId: devis.laboratoireId,
+      utilisateurId: req.user._id,
+      action: 'DELETE_DEVIS',
+      cible: {
+        type: 'Devis',
+        id: devis._id,
+        nom: `Devis ${devis.numero}`
+      },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
     });
 
-  } catch (err) {
-    console.error('Erreur suppression devis:', err);
+    res.json({
+      success: true,
+      message: '🗑️ Devis supprimé définitivement'
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur suppression devis:', error);
     res.status(500).json({
       success: false,
-      message: err.message || 'Erreur lors de la suppression'
+      message: error.message || 'Erreur lors de la suppression'
     });
   }
 });
 
-// ===== CHANGER LE STATUT D'UN DEVIS =====
-router.patch('/:id/statut', async (req, res) => {
+// ===========================================
+// CHANGER LE STATUT D'UN DEVIS (PATCH)
+// ===========================================
+router.patch('/:id/statut', authenticate, checkPermission('UPDATE_DEVIS'), async (req, res) => {
   try {
-    const { statut, userId } = req.body;
+    const { statut } = req.body;
     const { id } = req.params;
 
-    // Validation du statut
     const statutsValides = ['brouillon', 'envoye', 'accepte', 'refuse', 'paye', 'annule'];
     if (!statutsValides.includes(statut)) {
       return res.status(400).json({
@@ -353,14 +409,28 @@ router.patch('/:id/statut', async (req, res) => {
 
     // Ajouter à l'historique
     if (typeof devis.ajouterHistorique === 'function') {
-      devis.ajouterHistorique(
-        'CHANGEMENT_STATUT',
-        userId,
-        { ancien: ancienStatut, nouveau: statut }
-      );
+      devis.ajouterHistorique('CHANGEMENT_STATUT', req.user._id, {
+        ancien: ancienStatut,
+        nouveau: statut
+      });
     }
 
     await devis.save();
+
+    // ===== JOURNALISATION =====
+    await AuditLog.create({
+      espaceId: devis.laboratoireId,
+      utilisateurId: req.user._id,
+      action: 'UPDATE_DEVIS',
+      cible: {
+        type: 'Devis',
+        id: devis._id,
+        nom: `Devis ${devis.numero}`
+      },
+      details: { ancienStatut, nouveauStatut: statut },
+      ip: req.ip,
+      userAgent: req.headers['user-agent']
+    });
 
     res.json({
       success: true,
@@ -369,10 +439,10 @@ router.patch('/:id/statut', async (req, res) => {
     });
 
   } catch (error) {
-    console.error('Erreur changement statut:', error);
+    console.error('❌ Erreur changement statut:', error);
     res.status(500).json({
       success: false,
-      message: 'Erreur serveur'
+      message: error.message || 'Erreur serveur'
     });
   }
 });

@@ -26,7 +26,8 @@ const PERMISSIONS = {
   // Gestion des devis
   'VIEW_DEVIS': ['super_admin', 'admin', 'manager_labo', 'comptable', 'secretaire'],
   'CREATE_DEVIS': ['super_admin', 'admin', 'manager_labo', 'secretaire'],
-  'VALIDATE_DEVIS': ['super_admin', 'admin', 'manager_labo', 'comptable'],
+  'UPDATE_DEVIS': ['super_admin', 'admin', 'manager_labo', 'comptable'],
+  'DELETE_DEVIS': ['super_admin', 'admin', 'manager_labo'],
 
   // Gestion des fiches d'analyses (AJOUTER)
   'VIEW_FICHES': ['super_admin', 'admin', 'manager_labo', 'biologiste', 'technicien'],

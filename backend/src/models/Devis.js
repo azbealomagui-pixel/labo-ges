@@ -1,6 +1,7 @@
 // ===========================================
 // MODÈLE: Devis.js
 // RÔLE: Modèle pour les devis
+// VERSION: Corrigée avec gestion d'erreurs
 // ===========================================
 
 const mongoose = require('mongoose');
@@ -25,13 +26,23 @@ const devisSchema = new mongoose.Schema({
     observations: String
   }],
   
-  sousTotal: { valeur: { type: Number, default: 0 }, devise: { type: String, default: 'EUR' } },
-  total: { valeur: { type: Number, default: 0 }, devise: { type: String, default: 'EUR' } },
+  sousTotal: { 
+    valeur: { type: Number, default: 0 }, 
+    devise: { type: String, default: 'EUR' } 
+  },
+  total: { 
+    valeur: { type: Number, default: 0 }, 
+    devise: { type: String, default: 'EUR' } 
+  },
   remiseGlobale: { type: Number, default: 0, min: 0, max: 100 },
   dateEmission: { type: Date, default: Date.now },
   dateValidite: { type: Date, default: () => new Date(+new Date() + 30*24*60*60*1000) },
   datePaiement: Date,
-  statut: { type: String, enum: ['brouillon', 'envoye', 'accepte', 'refuse', 'paye', 'annule', 'expire'], default: 'brouillon' },
+  statut: { 
+    type: String, 
+    enum: ['brouillon', 'envoye', 'accepte', 'refuse', 'paye', 'annule', 'expire'], 
+    default: 'brouillon' 
+  },
   notes: String,
   historique: [{
     action: String,
@@ -44,19 +55,11 @@ const devisSchema = new mongoose.Schema({
 
 // ===== MIDDLEWARE PRE-SAVE CORRIGÉ =====
 devisSchema.pre('save', function(next) {
-  // Vérifier que la fonction next existe
-  if (typeof next !== 'function') {
-    console.error('❌ next n\'est pas une fonction');
-    return;
-  }
-
   try {
-    // Si pas de lignes, on sort
     if (!this.lignes || this.lignes.length === 0) {
       return next();
     }
 
-    // Calcul du sous-total
     let sousTotalCalc = 0;
     this.lignes.forEach(ligne => {
       const prixU = ligne.prixUnitaire || 0;
@@ -67,11 +70,9 @@ devisSchema.pre('save', function(next) {
       sousTotalCalc += totalLigne;
     });
 
-    // Appliquer la remise
     const remise = this.remiseGlobale || 0;
     const totalCalc = sousTotalCalc * (1 - remise / 100);
 
-    // Mettre à jour les champs
     this.sousTotal = {
       valeur: Number(sousTotalCalc.toFixed(2)),
       devise: this.devise || 'EUR'

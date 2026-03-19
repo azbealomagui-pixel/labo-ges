@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: Devis
 // RÔLE: Liste et gestion des devis/factures
-// AVEC: Bouton Supprimer individuel + Excel global
+// VERSION: Corrigée avec espaceId et recherche fonctionnelle
 // ===========================================
 
 import { useEffect, useState } from 'react';
@@ -14,7 +14,7 @@ import {
   IconEdit, 
   IconDelete, 
   IconSearch, 
-  IconPrinter,
+  IconPrinter, 
   IconSend,
   IconCheck,
   IconX,
@@ -25,7 +25,6 @@ import { genererPDFDevis, ouvrirPDF, telechargerPDF } from '../utils/pdfGenerato
 import { formatDate } from '../utils/formatters';
 import { exportToExcel } from '../utils/excelGenerator';
 
-// ===== CONFIGURATION DES STATUTS =====
 const STATUS_CONFIG = {
   brouillon: {
     label: 'Brouillon',
@@ -77,16 +76,15 @@ const STATUS_CONFIG = {
   }
 };
 
-// ===== FONCTION DE FORMATAGE DES MONTANTS =====
 const formaterMontant = (montant, devise = 'EUR') => {
-  if (montant === undefined || montant === null) return '0,00';
+  if (montant === undefined || montant === null) return '0,00 €';
   try {
     return new Intl.NumberFormat('fr-FR', {
       style: 'currency',
       currency: devise,
       minimumFractionDigits: 2,
       maximumFractionDigits: 2
-    }).format(montant).replace(/\s/g, ' ');
+    }).format(montant);
   } catch {
     return `${montant.toFixed(2)} ${devise}`;
   }
@@ -95,11 +93,11 @@ const formaterMontant = (montant, devise = 'EUR') => {
 const Devis = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [devis, setDevis] = useState([]);           // Liste complète
-  const [filteredDevis, setFilteredDevis] = useState([]); // Liste filtrée
+  const [devis, setDevis] = useState([]);
+  const [filteredDevis, setFilteredDevis] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('tous');      // Filtre par statut
-  const [searchTerm, setSearchTerm] = useState('');   // Terme de recherche
+  const [filter, setFilter] = useState('tous');
+  const [searchTerm, setSearchTerm] = useState('');
   const [laboratoire, setLaboratoire] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
 
@@ -107,59 +105,66 @@ const Devis = () => {
   useEffect(() => {
     const fetchDevis = async () => {
       try {
-        const response = await api.get(`/devis/labo/${user.laboratoireId}`);
+        const espaceId = user?.laboratoireId || user?.espaceId;
+        if (!espaceId) {
+          toast.error('Configuration espace invalide');
+          return;
+        }
+
+        const response = await api.get(`/devis/labo/${espaceId}`);
         const data = response.data.devis || [];
         setDevis(data);
         setFilteredDevis(data);
       } catch (err) {
-        console.error('Erreur chargement devis:', err);
+        console.error('❌ Erreur chargement devis:', err);
         toast.error('Erreur chargement des devis');
       } finally {
         setLoading(false);
       }
     };
 
-    fetchDevis();
-  }, [user?.laboratoireId]);
+    if (user) {
+      fetchDevis();
+    }
+  }, [user]);
 
   // ===== CHARGEMENT DES INFOS LABORATOIRE =====
   useEffect(() => {
     const fetchLabo = async () => {
       try {
-        const response = await api.get(`/laboratoires/${user.laboratoireId}`);
-        setLaboratoire(response.data.laboratoire);
+        const espaceId = user?.laboratoireId || user?.espaceId;
+        if (!espaceId) return;
+        
+        const response = await api.get(`/espaces/${espaceId}`);
+        setLaboratoire(response.data.espace);
       } catch (err) {
-        console.error('Erreur chargement labo:', err);
+        console.error('❌ Erreur chargement espace:', err);
       }
     };
     
-    if (user?.laboratoireId) {
+    if (user) {
       fetchLabo();
     }
-  }, [user?.laboratoireId]);
+  }, [user]);
 
   // ===== RECHERCHE INSTANTANÉE =====
   useEffect(() => {
     const timer = setTimeout(() => {
-      // Appliquer d'abord le filtre par statut
       let filtered = devis;
       
       if (filter !== 'tous') {
         filtered = filtered.filter(d => d.statut === filter);
       }
       
-      // Ensuite appliquer la recherche textuelle
       if (searchTerm.length >= 2) {
         const term = searchTerm.toLowerCase();
         filtered = filtered.filter(d => 
-          d.numero.toLowerCase().includes(term) ||
-          `${d.patientId?.nom} ${d.patientId?.prenom}`.toLowerCase().includes(term) ||
+          d.numero?.toLowerCase().includes(term) ||
+          `${d.patientId?.nom || ''} ${d.patientId?.prenom || ''}`.toLowerCase().includes(term) ||
           (d.total?.valeur && d.total.valeur.toString().includes(term))
         );
-        setFilteredDevis(filtered);
-      } else {
-        setFilteredDevis(filtered);
       }
+      setFilteredDevis(filtered);
     }, 300);
 
     return () => clearTimeout(timer);
@@ -174,13 +179,11 @@ const Devis = () => {
     setActionLoading(id);
     try {
       await api.delete(`/devis/${id}`);
-      toast.success(`Devis ${numero} supprimé`);
+      toast.success(`✅ Devis ${numero} supprimé`);
       
-      // FORCER LA MISE À JOUR
       const updatedDevis = devis.filter(d => d._id !== id);
       setDevis(updatedDevis);
       
-      // Re-filtrer après suppression
       let filtered = updatedDevis;
       if (filter !== 'tous') {
         filtered = filtered.filter(d => d.statut === filter);
@@ -188,21 +191,21 @@ const Devis = () => {
       if (searchTerm.length >= 2) {
         const term = searchTerm.toLowerCase();
         filtered = filtered.filter(d => 
-          d.numero.toLowerCase().includes(term) ||
-          `${d.patientId?.nom} ${d.patientId?.prenom}`.toLowerCase().includes(term)
+          d.numero?.toLowerCase().includes(term) ||
+          `${d.patientId?.nom || ''} ${d.patientId?.prenom || ''}`.toLowerCase().includes(term)
         );
       }
       setFilteredDevis(filtered);
       
     } catch (err) {
-      console.error('Erreur suppression:', err);
+      console.error('❌ Erreur suppression:', err);
       toast.error(err.response?.data?.message || 'Erreur lors de la suppression');
     } finally {
       setActionLoading(null);
     }
   };
 
-  // ===== EXPORT EXCEL GLOBAL =====
+  // ===== EXPORT EXCEL =====
   const exportAllToExcel = () => {
     try {
       const devisAExporter = filteredDevis.map(d => ({
@@ -212,9 +215,7 @@ const Devis = () => {
         montant: d.total?.valeur || 0,
         devise: d.devise || 'EUR',
         statut: d.statut,
-        remise: d.remiseGlobale || 0,
-        dateEmission: new Date(d.dateEmission).toLocaleDateString('fr-FR'),
-        dateValidite: d.dateValidite ? new Date(d.dateValidite).toLocaleDateString('fr-FR') : ''
+        remise: d.remiseGlobale || 0
       }));
 
       exportToExcel(devisAExporter, `devis-${new Date().toISOString().split('T')[0]}`, {
@@ -224,14 +225,12 @@ const Devis = () => {
         montant: 'Montant',
         devise: 'Devise',
         statut: 'Statut',
-        remise: 'Remise %',
-        dateEmission: 'Date émission',
-        dateValidite: 'Date validité'
+        remise: 'Remise %'
       });
       
-      toast.success(`${devisAExporter.length} devis exportés`);
+      toast.success(`📊 ${devisAExporter.length} devis exportés`);
     } catch (err) {
-      console.error('Erreur export Excel:', err);
+      console.error('❌ Erreur export Excel:', err);
       toast.error('Erreur lors de l\'export Excel');
     }
   };
@@ -253,8 +252,7 @@ const Devis = () => {
     setActionLoading(id);
     try {
       const response = await api.patch(`/devis/${id}/statut`, { 
-        statut: nouveauStatut,
-        userId: user._id
+        statut: nouveauStatut
       });
       
       if (response.data.success) {
@@ -270,30 +268,30 @@ const Devis = () => {
         if (searchTerm.length >= 2) {
           const term = searchTerm.toLowerCase();
           filtered = filtered.filter(d => 
-            d.numero.toLowerCase().includes(term) ||
-            `${d.patientId?.nom} ${d.patientId?.prenom}`.toLowerCase().includes(term)
+            d.numero?.toLowerCase().includes(term) ||
+            `${d.patientId?.nom || ''} ${d.patientId?.prenom || ''}`.toLowerCase().includes(term)
           );
         }
         setFilteredDevis(filtered);
         
         const messages = {
-          envoye: 'Devis envoyé',
-          accepte: 'Devis accepté',
-          refuse: 'Devis refusé',
-          paye: 'Devis payé',
-          annule: 'Devis annulé'
+          envoye: '📧 Devis envoyé',
+          accepte: '✅ Devis accepté',
+          refuse: '❌ Devis refusé',
+          paye: '💰 Devis payé',
+          annule: '🚫 Devis annulé'
         };
         toast.success(messages[nouveauStatut]);
       }
     } catch (err) {
-      console.error('Erreur:', err);
-      toast.error(err.response?.data?.message || 'Erreur');
+      console.error('❌ Erreur changement statut:', err);
+      toast.error(err.response?.data?.message || 'Erreur lors du changement de statut');
     } finally {
       setActionLoading(null);
     }
   };
 
-  // ===== BADGE DE STATUT =====
+  // ===== COMPOSANTS =====
   const StatusBadge = ({ statut }) => {
     const config = STATUS_CONFIG[statut] || STATUS_CONFIG.brouillon;
     return (
@@ -306,7 +304,6 @@ const Devis = () => {
     );
   };
 
-  // ===== BOUTONS D'ACTION SELON STATUT =====
   const StatusActions = ({ devisItem }) => {
     const config = STATUS_CONFIG[devisItem.statut] || STATUS_CONFIG.brouillon;
     
@@ -394,7 +391,7 @@ const Devis = () => {
           </button>
         </div>
 
-        {/* En-tête avec bouton Excel global */}
+        {/* En-tête */}
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Devis & Factures</h1>
@@ -403,7 +400,6 @@ const Devis = () => {
             </p>
           </div>
           <div className="flex gap-4">
-            {/* ===== BOUTON EXCEL GLOBAL ===== */}
             <button
               onClick={exportAllToExcel}
               className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
@@ -474,29 +470,26 @@ const Devis = () => {
                   ? `Aucun devis ne correspond à "${searchTerm}"`
                   : 'Commencez par créer votre premier devis.'}
               </p>
+              {!searchTerm && (
+                <button
+                  onClick={() => navigate('/devis/new')}
+                  className="inline-flex items-center gap-2 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700"
+                >
+                  <img src={IconAdd} alt="" className="w-5 h-5" />
+                  Nouveau devis
+                </button>
+              )}
             </div>
           ) : (
             <table className="min-w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    N° Devis
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Patient
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Montant
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Statut
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">N° Devis</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Patient</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Montant</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -520,7 +513,6 @@ const Devis = () => {
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
-                        {/* Bouton Voir/Modifier */}
                         <button
                           onClick={() => navigate(`/devis/${d._id}`)}
                           className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -529,7 +521,6 @@ const Devis = () => {
                           <img src={IconEdit} alt="Voir" className="w-5 h-5" />
                         </button>
                         
-                        {/* Bouton Ouvrir le PDF */}
                         <button
                           onClick={async () => {
                             const doc = await genererPDFDevis(d, laboratoire, user);
@@ -541,7 +532,6 @@ const Devis = () => {
                           <img src={IconPrinter} alt="PDF" className="w-5 h-5" />
                         </button>
                         
-                        {/* Bouton Télécharger le PDF */}
                         <button
                           onClick={async () => {
                             const doc = await genererPDFDevis(d, laboratoire, user);
@@ -555,7 +545,6 @@ const Devis = () => {
                           </svg>
                         </button>
 
-                        {/* ===== BOUTON SUPPRIMER (remplace Excel individuel) ===== */}
                         <button
                           onClick={() => handleDelete(d._id, d.numero)}
                           disabled={actionLoading === d._id}

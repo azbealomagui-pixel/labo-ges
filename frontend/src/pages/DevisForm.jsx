@@ -1,10 +1,11 @@
 // ===========================================
 // PAGE: DevisForm
 // RÔLE: Création/Modification d'un devis
+// VERSION: Corrigée avec espaceId
 // ===========================================
 
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom'; // ← AJOUTER useParams
+import { useNavigate, useParams } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
@@ -19,7 +20,7 @@ const CURRENCIES = [
 
 const DevisForm = () => {
   const navigate = useNavigate();
-  const { id } = useParams(); // ← RÉCUPÉRER L'ID
+  const { id } = useParams();
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState([]);
@@ -32,6 +33,9 @@ const DevisForm = () => {
   const [selectedDevise, setSelectedDevise] = useState('EUR');
   const [errors, setErrors] = useState({});
 
+  // ===== VARIABLE POUR L'ESPACE ID =====
+  const espaceId = user?.laboratoireId || user?.espaceId;
+
   // ===== CHARGEMENT DU DEVIS EN MODE ÉDITION =====
   useEffect(() => {
     if (id) {
@@ -41,10 +45,8 @@ const DevisForm = () => {
           const response = await api.get(`/devis/${id}`);
           const devis = response.data.devis;
           
-          // Charger le patient
           setSelectedPatient(devis.patientId);
           
-          // Charger les analyses
           const analysesChargees = devis.lignes.map(ligne => ({
             _id: ligne.analyseId?._id || ligne.analyseId,
             code: ligne.code,
@@ -55,13 +57,12 @@ const DevisForm = () => {
           }));
           setSelectedAnalyses(analysesChargees);
           
-          // Charger les autres données
           setRemise(devis.remiseGlobale || 0);
           setSelectedDevise(devis.devise || 'EUR');
           
-          toast.success('Devis chargé avec succès');
+          toast.success('✅ Devis chargé avec succès');
         } catch (err) {
-          console.error('Erreur chargement devis:', err);
+          console.error('❌ Erreur chargement devis:', err);
           toast.error('Impossible de charger le devis');
           navigate('/devis');
         } finally {
@@ -72,33 +73,37 @@ const DevisForm = () => {
     }
   }, [id, navigate]);
 
-  // Charger les patients
+  // ===== CHARGEMENT DES PATIENTS =====
   useEffect(() => {
     const fetchPatients = async () => {
+      if (!espaceId) return;
+      
       try {
-        const response = await api.get(`/patients/labo/${user.laboratoireId}`);
+        const response = await api.get(`/patients/labo/${espaceId}`);
         setPatients(response.data.patients || []);
       } catch (err) {
-        console.error('Erreur chargement patients:', err);
+        console.error('❌ Erreur chargement patients:', err);
         toast.error('Erreur chargement patients');
       }
     };
     fetchPatients();
-  }, [user.laboratoireId]);
+  }, [espaceId]);
 
-  // Charger les analyses
+  // ===== CHARGEMENT DES ANALYSES =====
   useEffect(() => {
     const fetchAnalyses = async () => {
+      if (!espaceId) return;
+      
       try {
-        const response = await api.get(`/analyses/labo/${user.laboratoireId}`);
+        const response = await api.get(`/analyses/labo/${espaceId}`);
         setAnalyses(response.data.analyses || []);
       } catch (err) {
-        console.error('Erreur chargement analyses:', err);
+        console.error('❌ Erreur chargement analyses:', err);
         toast.error('Erreur chargement analyses');
       }
     };
     fetchAnalyses();
-  }, [user.laboratoireId]);
+  }, [espaceId]);
 
   // ===== VALIDATION =====
   const validateForm = () => {
@@ -158,12 +163,18 @@ const DevisForm = () => {
       return;
     }
 
+    if (!espaceId) {
+      toast.error('Configuration espace invalide');
+      return;
+    }
+
     setLoading(true);
 
     try {
       const devisData = {
         patientId: selectedPatient._id,
-        laboratoireId: user.laboratoireId,
+        espaceId: espaceId,
+        laboratoireId: espaceId,
         createdBy: user._id,
         devise: selectedDevise,
         lignes: selectedAnalyses.map(a => ({
@@ -178,17 +189,19 @@ const DevisForm = () => {
         notes: `Devis ${id ? 'modifié' : 'créé'} par ${user.prenom} ${user.nom}`
       };
 
+      console.log('📦 Données envoyées:', devisData);
+
       if (id) {
         await api.put(`/devis/${id}`, devisData);
-        toast.success('Devis modifié avec succès');
+        toast.success('✅ Devis modifié avec succès');
       } else {
         await api.post('/devis', devisData);
-        toast.success('Devis créé avec succès');
+        toast.success('✅ Devis créé avec succès');
       }
       
       navigate('/devis');
     } catch (err) {
-      console.error('Erreur:', err);
+      console.error('❌ Erreur:', err);
       toast.error(err.response?.data?.message || 'Erreur lors de la sauvegarde');
     } finally {
       setLoading(false);
