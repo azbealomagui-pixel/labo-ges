@@ -1,6 +1,7 @@
 // ===========================================
 // MODÈLE: AuditLog
 // RÔLE: Journaliser toutes les actions importantes
+// VERSION: Finale avec toutes les actions
 // ===========================================
 
 const mongoose = require('mongoose');
@@ -20,20 +21,35 @@ const auditLogSchema = new mongoose.Schema({
     type: String,
     required: true,
     enum: [
+      // Utilisateurs
       'CREATE_USER',
       'UPDATE_USER',
       'DELETE_USER',
       'TOGGLE_USER_ACTIF',
       'DELEGATE_PERMISSIONS',
+      
+      // Patients
       'CREATE_PATIENT',
       'UPDATE_PATIENT',
       'DELETE_PATIENT',
+      
+      // Analyses
       'CREATE_ANALYSE',
       'UPDATE_ANALYSE',
       'DELETE_ANALYSE',
+      
+      // Devis
       'CREATE_DEVIS',
+      'UPDATE_DEVIS',    // ← AJOUTER
+      'DELETE_DEVIS',    // ← AJOUTER
+      
+      // Rapports
       'VALIDATE_RAPPORT',
-      'DELETE_FICHE'
+      
+      // Fiches
+      'CREATE_FICHE',    // ← AJOUTER
+      'UPDATE_FICHE',    // ← AJOUTER
+      'DELETE_FICHE'     // ← AJOUTER
     ]
   },
   cible: {
