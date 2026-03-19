@@ -46,7 +46,7 @@ const PERMISSIONS = {
   
   // Paramètres
   'VIEW_SETTINGS': ['super_admin', 'admin', 'manager_labo'],
-  'UPDATE_SETTINGS': ['super_admin', 'admin', 'manager_labo']
+  'UPDATE_SETTINGS': ['super_admin', 'admin', 'manager_labo'],
 };
 
 const checkPermission = (permission) => {
