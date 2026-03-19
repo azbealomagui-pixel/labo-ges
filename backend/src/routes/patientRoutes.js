@@ -1,7 +1,7 @@
 // ===========================================
 // FICHIER: src/routes/patientRoutes.js
 // RÔLE: Routes pour la gestion des patients
-// VERSION: Accepte laboratoireId OU espaceId
+// VERSION: Corrigée (suppression fonctionnelle)
 // ===========================================
 
 const express = require('express');
@@ -24,13 +24,9 @@ router.post('/', authenticate, checkPermission('CREATE_PATIENT'), async (req, re
       laboratoireId, espaceId
     } = req.body;
     
-    // L'utilisateur authentifié devient le créateur
     const createdBy = req.user._id;
-
-    // === SOLUTION : Accepter laboratoireId OU espaceId ===
     const espace = laboratoireId || espaceId;
 
-    // === VALIDATION ===
     const missingFields = [];
     if (!nom?.trim()) missingFields.push('nom');
     if (!prenom?.trim()) missingFields.push('prenom');
@@ -48,31 +44,18 @@ router.post('/', authenticate, checkPermission('CREATE_PATIENT'), async (req, re
       });
     }
 
-    // Validation email
     if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Format email invalide'
-      });
+      return res.status(400).json({ success: false, message: 'Format email invalide' });
     }
 
-    // Validation téléphone
     if (!/^[0-9+\-\s]{8,}$/.test(telephone)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Format téléphone invalide (minimum 8 chiffres)'
-      });
+      return res.status(400).json({ success: false, message: 'Format téléphone invalide (minimum 8 chiffres)' });
     }
 
-    // Validation date naissance
     if (new Date(dateNaissance) > new Date()) {
-      return res.status(400).json({
-        success: false,
-        message: 'La date de naissance ne peut pas être dans le futur'
-      });
+      return res.status(400).json({ success: false, message: 'La date de naissance ne peut pas être dans le futur' });
     }
     
-    // Création du patient (avec espace au lieu de laboratoireId)
     const newPatient = new Patient({
       nom: nom.trim(),
       prenom: prenom.trim(),
@@ -91,7 +74,6 @@ router.post('/', authenticate, checkPermission('CREATE_PATIENT'), async (req, re
     
     await newPatient.save();
 
-    // Journalisation (utilise espace pour AuditLog)
     await AuditLog.create({
       espaceId: espace,
       utilisateurId: createdBy,
@@ -116,10 +98,7 @@ router.post('/', authenticate, checkPermission('CREATE_PATIENT'), async (req, re
     console.error('❌ Erreur création patient:', error);
     
     if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        message: 'Ce numéro de sécurité sociale existe déjà'
-      });
+      return res.status(400).json({ success: false, message: 'Ce numéro de sécurité sociale existe déjà' });
     }
 
     if (error.name === 'ValidationError') {
@@ -133,10 +112,7 @@ router.post('/', authenticate, checkPermission('CREATE_PATIENT'), async (req, re
       });
     }
     
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la création du patient'
-    });
+    res.status(500).json({ success: false, message: 'Erreur lors de la création du patient' });
   }
 });
 
@@ -148,7 +124,6 @@ router.get('/labo/:espaceId', authenticate, checkPermission('VIEW_PATIENTS'), as
     const { espaceId } = req.params;
     const { page = 1, limit = 50, search } = req.query;
 
-    // CORRECTION : Utilisez laboratoireId dans la requête (c'est le nom du champ dans la base)
     const query = { laboratoireId: espaceId };
     
     if (search && search.length >= 2) {
@@ -178,10 +153,7 @@ router.get('/labo/:espaceId', authenticate, checkPermission('VIEW_PATIENTS'), as
     
   } catch (error) {
     console.error('❌ Erreur listage patients:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors du chargement des patients'
-    });
+    res.status(500).json({ success: false, message: 'Erreur lors du chargement des patients' });
   }
 });
 
@@ -214,10 +186,7 @@ router.get('/search', authenticate, checkPermission('VIEW_PATIENTS'), async (req
     
   } catch (error) {
     console.error('❌ Erreur recherche patients:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la recherche'
-    });
+    res.status(500).json({ success: false, message: 'Erreur lors de la recherche' });
   }
 });
 
@@ -229,31 +198,19 @@ router.get('/:id', authenticate, checkPermission('VIEW_PATIENTS'), async (req, r
     const patient = await Patient.findById(req.params.id);
     
     if (!patient) {
-      return res.status(404).json({
-        success: false,
-        message: 'Patient non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Patient non trouvé' });
     }
     
-    res.json({
-      success: true,
-      patient
-    });
+    res.json({ success: true, patient });
     
   } catch (error) {
     console.error('❌ Erreur récupération patient:', error);
     
     if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        message: 'ID patient invalide'
-      });
+      return res.status(400).json({ success: false, message: 'ID patient invalide' });
     }
 
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la récupération du patient'
-    });
+    res.status(500).json({ success: false, message: 'Erreur lors de la récupération du patient' });
   }
 });
 
@@ -262,10 +219,8 @@ router.get('/:id', authenticate, checkPermission('VIEW_PATIENTS'), async (req, r
 // ===========================================
 router.put('/:id', authenticate, checkPermission('UPDATE_PATIENT'), async (req, res) => {
   try {
-    // Préparer les données à mettre à jour
     const updates = { ...req.body };
     
-    // CORRECTION : Si espaceId est envoyé mais que le modèle attend laboratoireId
     if (updates.espaceId && !updates.laboratoireId) {
       updates.laboratoireId = updates.espaceId;
       delete updates.espaceId;
@@ -278,13 +233,9 @@ router.put('/:id', authenticate, checkPermission('UPDATE_PATIENT'), async (req, 
     );
     
     if (!patient) {
-      return res.status(404).json({
-        success: false,
-        message: 'Patient non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Patient non trouvé' });
     }
 
-    // Journalisation
     await AuditLog.create({
       espaceId: patient.laboratoireId,
       utilisateurId: req.user._id,
@@ -299,11 +250,7 @@ router.put('/:id', authenticate, checkPermission('UPDATE_PATIENT'), async (req, 
       userAgent: req.headers['user-agent']
     });
     
-    res.json({
-      success: true,
-      message: '✅ Patient mis à jour',
-      patient
-    });
+    res.json({ success: true, message: '✅ Patient mis à jour', patient });
     
   } catch (error) {
     console.error('❌ Erreur mise à jour patient:', error);
@@ -319,15 +266,12 @@ router.put('/:id', authenticate, checkPermission('UPDATE_PATIENT'), async (req, 
       });
     }
     
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la mise à jour'
-    });
+    res.status(500).json({ success: false, message: 'Erreur lors de la mise à jour' });
   }
 });
 
 // ===========================================
-// SUPPRIMER un patient (DELETE /:id)
+// SUPPRIMER un patient (DELETE /:id) - CORRIGÉ
 // ===========================================
 router.delete('/:id', authenticate, checkPermission('DELETE_PATIENT'), async (req, res) => {
   try {
@@ -340,9 +284,9 @@ router.delete('/:id', authenticate, checkPermission('DELETE_PATIENT'), async (re
       });
     }
 
-    // Journalisation
+    // CORRECTION : Utiliser patient.laboratoireId au lieu de patient.espaceId
     await AuditLog.create({
-      espaceId: patient.espaceId,
+      espaceId: patient.laboratoireId,  // ← CORRIGÉ
       utilisateurId: req.user._id,
       action: 'DELETE_PATIENT',
       cible: {
