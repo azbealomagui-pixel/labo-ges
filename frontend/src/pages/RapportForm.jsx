@@ -111,15 +111,12 @@ const RapportForm = () => {
     }
   };
 
-  // ===== VALIDER LE RAPPORT =====
+  // ===== VALIDER LE RAPPORT (VERSION CORRIGÉE) =====
   const handleValider = async () => {
-    if (!rapport?._id) return;
-
-    const signature = prompt('Entrez votre signature:');
-    if (!signature) return;
-
     try {
-      console.log('1️⃣ Envoi de la validation...');
+      const signature = prompt('Entrez votre signature:');
+      if (!signature) return;
+
       const response = await api.patch(`/rapports/${rapport._id}/valider`, {
         signature,
         cachet: 'Cachet officiel'
@@ -128,47 +125,17 @@ const RapportForm = () => {
       if (response.data.success) {
         toast.success('✅ Rapport validé');
         
-        console.log('2️⃣ Génération du PDF...');
-        console.log('📦 Données du rapport:', response.data.rapport);
+        // Charger l'espace avant de générer le PDF
+        const espaceId = user?.laboratoireId || user?.espaceId;
+        const espaceRes = await api.get(`/espaces/${espaceId}`);
+        const espace = espaceRes.data.espace;
         
-        try {
-          const doc = await genererPDFRapport(response.data.rapport, user);
-          
-          console.log('3️⃣ Résultat de genererPDFRapport:', doc ? '✅ OK' : '❌ null');
-          
-          if (doc) {
-            console.log('4️⃣ Création du blob...');
-            const pdfBlob = doc.output('blob');
-            console.log('📦 Taille du blob:', pdfBlob.size, 'octets');
-            
-            const url = URL.createObjectURL(pdfBlob);
-            console.log('5️⃣ URL créée');
-            
-            // Tentative d'ouverture avec fallback
-            const newWindow = window.open('', '_blank');
-            if (newWindow) {
-              newWindow.location.href = url;
-              console.log('6️⃣ Nouvel onglet ouvert');
-            } else {
-              // Si pop-up bloqué, proposer le téléchargement
-              const link = document.createElement('a');
-              link.href = url;
-              link.download = `rapport-${rapport._id.slice(-8)}.pdf`;
-              link.click();
-              toast.info('📥 Téléchargement automatique (pop-up bloqué)');
-            }
-            
-            setTimeout(() => {
-              URL.revokeObjectURL(url);
-              console.log('7️⃣ URL révoquée');
-            }, 1000);
-          } else {
-            console.error('❌ doc est null - erreur dans genererPDFRapport');
-            toast.error('Erreur génération PDF');
-          }
-        } catch (pdfError) {
-          console.error('❌ Erreur PDF détaillée:', pdfError);
-          toast.error('Erreur lors de la génération du PDF');
+        const doc = await genererPDFRapport(response.data.rapport, user, espace);
+        if (doc) {
+          const pdfBlob = doc.output('blob');
+          const url = URL.createObjectURL(pdfBlob);
+          window.open(url, '_blank');
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
       }
     } catch (error) {

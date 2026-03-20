@@ -16,6 +16,7 @@ const useAuth = () => {
     return null;
   });
   
+  const [espace, setEspace] = useState(null);
   const navigate = useNavigate();
 
   const login = async (email, password) => {
@@ -31,6 +32,18 @@ const useAuth = () => {
         localStorage.setItem('token', response.data.token);
         localStorage.setItem('user', JSON.stringify(userData));
         setUser(userData);
+        
+        // Charger l'espace
+        const espaceId = userData?.laboratoireId || userData?.espaceId;
+        if (espaceId) {
+          try {
+            const espaceRes = await api.get(`/espaces/${espaceId}`);
+            setEspace(espaceRes.data.espace);
+          } catch (error) {
+            console.error('❌ Erreur chargement espace:', error);
+          }
+        }
+        
         navigate('/dashboard');
         return { success: true };
       }
@@ -43,10 +56,11 @@ const useAuth = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
+    setEspace(null);
     navigate('/login');
   };
 
-  return { user, login, logout };
+  return { user, espace, login, logout };
 };
 
 export default useAuth;

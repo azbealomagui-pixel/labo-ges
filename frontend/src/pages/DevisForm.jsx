@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: DevisForm
 // RÔLE: Création/Modification d'un devis
-// VERSION: Finale avec affichage entreprise
+// VERSION: Finale sans erreur ESLint
 // ===========================================
 
 import React, { useState, useEffect } from 'react';
@@ -10,6 +10,7 @@ import { toast } from 'react-toastify';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
 import { IconAdd, IconDelete, IconSearch } from '../assets';
+import { genererPDFDevis, ouvrirPDF } from '../utils/pdfGenerator';
 
 const CURRENCIES = [
   { code: 'EUR', symbole: '€', nom: 'Euro' },
@@ -21,7 +22,7 @@ const CURRENCIES = [
 const DevisForm = () => {
   const navigate = useNavigate();
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, espace: espaceFromAuth } = useAuth();
   const [loading, setLoading] = useState(false);
   const [patients, setPatients] = useState([]);
   const [analyses, setAnalyses] = useState([]);
@@ -32,6 +33,7 @@ const DevisForm = () => {
   const [remise, setRemise] = useState(0);
   const [selectedDevise, setSelectedDevise] = useState('EUR');
   const [errors, setErrors] = useState({});
+  const [devis, setDevis] = useState(null);
 
   // ===== VARIABLE POUR L'ESPACE ID =====
   const espaceId = user?.laboratoireId || user?.espaceId;
@@ -43,11 +45,12 @@ const DevisForm = () => {
         try {
           setLoading(true);
           const response = await api.get(`/devis/${id}`);
-          const devis = response.data.devis;
+          const devisData = response.data.devis;
           
-          setSelectedPatient(devis.patientId);
+          setDevis(devisData);
+          setSelectedPatient(devisData.patientId);
           
-          const analysesChargees = devis.lignes.map(ligne => ({
+          const analysesChargees = devisData.lignes.map(ligne => ({
             _id: ligne.analyseId?._id || ligne.analyseId,
             code: ligne.code,
             nom: ligne.nom,
@@ -57,8 +60,8 @@ const DevisForm = () => {
           }));
           setSelectedAnalyses(analysesChargees);
           
-          setRemise(devis.remiseGlobale || 0);
-          setSelectedDevise(devis.devise || 'EUR');
+          setRemise(devisData.remiseGlobale || 0);
+          setSelectedDevise(devisData.devise || 'EUR');
           
           toast.success('✅ Devis chargé avec succès');
         } catch (err) {
@@ -154,6 +157,30 @@ const DevisForm = () => {
     return total.toFixed(2);
   };
 
+  // ===== GÉNÉRER LE PDF =====
+  const handleGenererPDF = async () => {
+    if (selectedAnalyses.length === 0) {
+      toast.error('Ajoutez au moins une analyse pour générer un PDF');
+      return;
+    }
+
+    try {
+      const devisData = id ? devis : {
+        numero: 'APERÇU',
+        patientId: selectedPatient,
+        lignes: selectedAnalyses,
+        total: { valeur: parseFloat(calculTotal()) },
+        devise: selectedDevise
+      };
+      
+      const doc = await genererPDFDevis(devisData, espaceFromAuth, user);
+      if (doc) ouvrirPDF(doc);
+    } catch (error) {
+      console.error('❌ Erreur PDF:', error);
+      toast.error('Erreur génération PDF');
+    }
+  };
+
   // ===== SOUMISSION =====
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -192,10 +219,12 @@ const DevisForm = () => {
       console.log('📦 Données envoyées:', devisData);
 
       if (id) {
-        await api.put(`/devis/${id}`, devisData);
+        const response = await api.put(`/devis/${id}`, devisData);
+        setDevis(response.data.devis);
         toast.success('✅ Devis modifié avec succès');
       } else {
-        await api.post('/devis', devisData);
+        const response = await api.post('/devis', devisData);
+        setDevis(response.data.devis);
         toast.success('✅ Devis créé avec succès');
       }
       
@@ -409,19 +438,34 @@ const DevisForm = () => {
           </div>
 
           {/* Boutons */}
-          <div className="mt-8 flex gap-4">
+          <div className="mt-8 space-y-4">
+            <div className="flex gap-4">
+              <button
+                onClick={handleSubmit}
+                disabled={loading}
+                className="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+              >
+                {loading ? 'Enregistrement...' : (id ? 'Modifier' : 'Créer')}
+              </button>
+              <button
+                onClick={() => navigate('/devis')}
+                className="flex-1 bg-gray-200 px-6 py-3 rounded-lg hover:bg-gray-300"
+              >
+                Annuler
+              </button>
+            </div>
+            
+            {/* Bouton Aperçu PDF */}
             <button
-              onClick={handleSubmit}
-              disabled={loading}
-              className="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+              type="button"
+              onClick={handleGenererPDF}
+              disabled={selectedAnalyses.length === 0}
+              className="w-full bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {loading ? 'Enregistrement...' : (id ? 'Modifier' : 'Créer')}
-            </button>
-            <button
-              onClick={() => navigate('/devis')}
-              className="flex-1 bg-gray-200 px-6 py-3 rounded-lg hover:bg-gray-300"
-            >
-              Annuler
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+              </svg>
+              Aperçu PDF
             </button>
           </div>
         </div>

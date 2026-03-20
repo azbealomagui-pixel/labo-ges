@@ -69,6 +69,19 @@ const ajouterLogo = async (doc, laboratoire) => {
       ? 'http://localhost:5000'
       : 'https://labo-ges-api.onrender.com';
     
+    // Si laboratoire n'a pas de logo mais a un ID, essayer de le charger
+    if (!laboratoire?.logo && laboratoire?._id) {
+      try {
+        const response = await fetch(`${baseURL}/api/espaces/${laboratoire._id}`);
+        if (response.ok) {
+          const data = await response.json();
+          laboratoire.logo = data.espace.logo;
+        }
+      } catch {
+        console.log('Impossible de recharger le logo');
+      }
+    }
+    
     // Essayer d'abord le logo personnalisé
     if (laboratoire?.logo) {
       const logoUrl = `${baseURL}${laboratoire.logo}`;
