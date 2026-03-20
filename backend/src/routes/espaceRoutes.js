@@ -162,25 +162,39 @@ const upload = multer({
 
 
 // ===========================================
-// LISTER TOUS LES ESPACES (GET)
+// OBTENIR UN ESPACE PAR ID (GET) 
 // ===========================================
-router.get('/', async (req, res) => {
+router.get('/:id', authenticate, checkPermission('VIEW_SETTINGS'), async (req, res) => {
   try {
-    const espaces = await Espace.find()
+    const espace = await Espace.findById(req.params.id)
       .populate('createdBy', 'nom prenom email')
-      .sort({ createdAt: -1 });
+      .populate('employes');
+
+    if (!espace) {
+      return res.status(404).json({
+        success: false,
+        message: 'Espace non trouvé'
+      });
+    }
 
     res.json({
       success: true,
-      count: espaces.length,
-      espaces
+      espace
     });
 
   } catch (error) {
-    console.error('❌ Erreur listage espaces:', error);
+    console.error('❌ Erreur récupération espace:', error);
+    
+    if (error.name === 'CastError') {
+      return res.status(400).json({
+        success: false,
+        message: 'ID d\'espace invalide'
+      });
+    }
+
     res.status(500).json({
       success: false,
-      message: 'Erreur lors du chargement des espaces'
+      message: error.message || 'Erreur serveur'
     });
   }
 });
@@ -223,10 +237,10 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-// ===========================================
+/// ===========================================
 // METTRE À JOUR UN ESPACE (PUT)
 // ===========================================
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticate, checkPermission('UPDATE_SETTINGS'), async (req, res) => {
   try {
     // Empêcher la modification de certains champs
     const updates = { ...req.body };

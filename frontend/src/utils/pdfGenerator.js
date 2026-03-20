@@ -1,7 +1,7 @@
 // ===========================================
 // UTILITAIRE: pdfGenerator.js
 // RÔLE: Générer des PDF professionnels avec logo personnalisé
-// VERSION: Finale - Sans aucun warning ESLint
+// VERSION: Finale - Sans warning ESLint
 // ===========================================
 
 import jsPDF from 'jspdf';
@@ -60,37 +60,48 @@ const fallbackLogo = (doc) => {
 /**
  * Ajoute le logo au PDF (version avec URL distante)
  * @param {Object} doc - Instance jsPDF
- * @param {string} logoUrl - URL du logo (peut être null)
+ * @param {Object} laboratoire - Infos du laboratoire
  */
-const ajouterLogo = async (doc, logoUrl) => {
+const ajouterLogo = async (doc, laboratoire) => {
   try {
-    if (logoUrl) {
+    // Déterminer l'URL de base en fonction de l'environnement
+    const baseURL = typeof window !== 'undefined' && window.location?.hostname === 'localhost'
+      ? 'http://localhost:5000'
+      : 'https://labo-ges-api.onrender.com';
+    
+    // Essayer d'abord le logo personnalisé
+    if (laboratoire?.logo) {
+      const logoUrl = `${baseURL}${laboratoire.logo}`;
+      
       try {
-        // Télécharger l'image depuis l'URL
         const response = await fetch(logoUrl);
-        const blob = await response.blob();
-        
-        // Convertir en base64
-        const reader = new FileReader();
-        reader.readAsDataURL(blob);
-        
-        await new Promise((resolve) => {
-          reader.onloadend = () => {
-            try {
-              doc.addImage(reader.result, 'PNG', 14, 10, 30, 15);
-            } catch {
-              fallbackLogo(doc);
-            }
-            resolve();
-          };
-        });
+        if (response.ok) {
+          const blob = await response.blob();
+          const reader = new FileReader();
+          
+          await new Promise((resolve) => {
+            reader.onloadend = () => {
+              try {
+                doc.addImage(reader.result, 'PNG', 14, 10, 30, 15);
+              } catch {
+                fallbackLogo(doc);
+              }
+              resolve();
+            };
+            reader.readAsDataURL(blob);
+          });
+          return;
+        }
       } catch {
-        fallbackLogo(doc);
+        console.log('Logo personnalisé non accessible');
       }
-    } else {
-      fallbackLogo(doc);
     }
+    
+    // Fallback sur le logo par défaut
+    fallbackLogo(doc);
+    
   } catch {
+    console.log('Erreur chargement logo, génération sans logo');
     fallbackLogo(doc);
   }
 };
@@ -133,9 +144,7 @@ export const genererPDFDevis = async (devis, laboratoire, utilisateur) => {
     const pageWidth = doc.internal.pageSize.width;
     
     // Logo personnalisé
-    const logoUrl = laboratoire?.logo ? 
-      `${laboratoire.baseURL || ''}${laboratoire.logo}` : null;
-    await ajouterLogo(doc, logoUrl);
+    await ajouterLogo(doc, laboratoire);
     
     // En-tête avec nom de l'entreprise
     doc.setFontSize(24);
@@ -282,9 +291,7 @@ export const genererPDFPatient = async (patient, laboratoire, utilisateur) => {
     const pageWidth = doc.internal.pageSize.width;
     
     // Logo personnalisé
-    const logoUrl = laboratoire?.logo ? 
-      `${laboratoire.baseURL || ''}${laboratoire.logo}` : null;
-    await ajouterLogo(doc, logoUrl);
+    await ajouterLogo(doc, laboratoire);
     
     // En-tête avec nom de l'entreprise
     doc.setFontSize(24);
@@ -382,9 +389,7 @@ export const genererPDFAnalyse = async (analyse, laboratoire, utilisateur) => {
     const pageWidth = doc.internal.pageSize.width;
     
     // Logo personnalisé
-    const logoUrl = laboratoire?.logo ? 
-      `${laboratoire.baseURL || ''}${laboratoire.logo}` : null;
-    await ajouterLogo(doc, logoUrl);
+    await ajouterLogo(doc, laboratoire);
     
     // En-tête avec nom de l'entreprise
     doc.setFontSize(24);
@@ -513,9 +518,7 @@ export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
     const pageWidth = doc.internal.pageSize.width;
     
     // Logo personnalisé
-    const logoUrl = laboratoire?.logo ? 
-      `${laboratoire.baseURL || ''}${laboratoire.logo}` : null;
-    await ajouterLogo(doc, logoUrl);
+    await ajouterLogo(doc, laboratoire);
 
     // En-tête avec nom de l'entreprise
     doc.setFontSize(24);
