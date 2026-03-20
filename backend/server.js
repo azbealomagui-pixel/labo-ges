@@ -12,6 +12,7 @@ const cors = require('cors');
 const rateLimit = require('express-rate-limit');
 const http = require('http');
 const socketIo = require('socket.io');
+const path = require('path');
 
 // ===== 2. CHARGER LES VARIABLES D'ENVIRONNEMENT =====
 dotenv.config();
@@ -53,7 +54,7 @@ app.use(limiter);
 // ===== 7. IMPORTER LES ROUTES =====
 const userRoutes = require('./src/routes/userRoutes');
 const laboratoireRoutes = require('./src/routes/laboratoireRoutes');
-const patientRoutes = require('./src/routes/patientRoutes'); 
+const patientRoutes = require('./src/routes/patientRoutes');
 const analyseRoutes = require('./src/routes/analyseRoutes');
 const devisRoutes = require('./src/routes/devisRoutes');
 const statsRoutes = require('./src/routes/statsRoutes');
@@ -62,8 +63,6 @@ const espaceRoutes = require('./src/routes/espaceRoutes');
 const rapportRoutes = require('./src/routes/rapportRoutes');
 const messageRoutes = require('./src/routes/messageRoutes');
 const abonnementRoutes = require('./src/routes/abonnementRoutes');
-const path = require('path');
-
 
 // ===== 8. APPLIQUER LE RATE LIMITING STRICT =====
 app.use('/api/users/login', authLimiter);
@@ -81,22 +80,39 @@ app.use('/api/espaces', espaceRoutes);
 app.use('/api/rapports', rapportRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/abonnements', abonnementRoutes);
-app.use('/api/patients', patientRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-
-
-
 // ===== 10. ROUTES DE TEST =====
+// Route racine
 app.get('/', (req, res) => {
   res.json({
     success: true,
-    message: 'API LaboGest',
+    message: 'API LaboGes',
     version: '1.0.0',
     timestamp: new Date().toLocaleString()
   });
 });
 
+// Route /api (pour que le frontend puisse vérifier)
+app.get('/api', (req, res) => {
+  res.json({
+    success: true,
+    message: 'API LaboGes opérationnelle',
+    endpoints: {
+      users: '/api/users',
+      patients: '/api/patients',
+      analyses: '/api/analyses',
+      devis: '/api/devis',
+      espaces: '/api/espaces',
+      rapports: '/api/rapports',
+      messages: '/api/messages',
+      abonnements: '/api/abonnements'
+    },
+    timestamp: new Date().toLocaleString()
+  });
+});
+
+// Route de test /api/test
 app.get('/api/test', (req, res) => {
   res.json({
     success: true,
@@ -117,10 +133,8 @@ const io = socketIo(server, {
   }
 });
 
-// Rendre io accessible dans les routes via app
 app.set('io', io);
 
-// Gestion des connexions Socket.IO
 io.on('connection', (socket) => {
   console.log('🔌 Nouvelle connexion socket:', socket.id);
 
@@ -141,8 +155,7 @@ mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('✅ CONNEXION MONGODB ATLAS RÉUSSIE !');
     console.log(`📊 Base de données: laboratoire`);
-    
-    // Démarrer le serveur
+
     server.listen(PORT, () => {
       console.log('═══════════════════════════════════════════');
       console.log(`🚀 SERVEUR DÉMARRÉ AVEC SUCCÈS !`);
