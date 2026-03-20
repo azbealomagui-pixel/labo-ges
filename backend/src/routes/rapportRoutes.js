@@ -12,6 +12,10 @@ const { authenticate } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/checkPermission');
 const router = express.Router();
 
+// ===========================================
+// ROUTES: rapportRoutes.js (extrait corrigé)
+// ===========================================
+
 // ===== CRÉER UN RAPPORT À PARTIR D'UNE FICHE =====
 router.post('/from-fiche/:ficheId', authenticate, checkPermission('CREATE_RAPPORT'), async (req, res) => {
   try {
@@ -36,20 +40,35 @@ router.post('/from-fiche/:ficheId', authenticate, checkPermission('CREATE_RAPPOR
       return res.status(404).json({ success: false, message: 'Fiche non trouvée' });
     }
 
-    // Préparer les résultats avec unité et valeurs de référence
+    console.log('📋 Fiche chargée:', {
+      patient: fiche.patientId?.nom,
+      analyses: fiche.lignes.length
+    });
+
+    // ===== PRÉPARER LES RÉSULTATS AVEC TOUTES LES DONNÉES =====
     const resultatsPreparés = fiche.lignes.map(ligne => {
       const analyse = ligne.analyseId;
+      
+      // Récupérer les valeurs de référence pour chaque sexe
+      const valeursRef = {
+        homme: analyse.valeursReference?.homme || { min: null, max: null, texte: '' },
+        femme: analyse.valeursReference?.femme || { min: null, max: null, texte: '' },
+        enfant: analyse.valeursReference?.enfant || { min: null, max: null, texte: '' }
+      };
+
+      console.log(`📊 Analyse ${analyse.code}:`, {
+        unite: analyse.uniteMesure,
+        normesHomme: valeursRef.homme,
+        normesFemme: valeursRef.femme
+      });
+
       return {
         analyseId: analyse._id,
         code: analyse.code,
         nom: analyse.nom?.fr || analyse.nom,
         valeur: 0,
         unite: analyse.uniteMesure || '',
-        valeurReference: {
-          min: analyse.valeursReference?.homme?.min || null,
-          max: analyse.valeursReference?.homme?.max || null,
-          texte: analyse.valeursReference?.homme?.texte || ''
-        },
+        valeurReference: valeursRef,
         interpretation: 'normal',
         commentaire: ''
       };
@@ -65,6 +84,12 @@ router.post('/from-fiche/:ficheId', authenticate, checkPermission('CREATE_RAPPOR
     });
 
     await nouveauRapport.save();
+
+    // Peupler les données pour la réponse
+    await nouveauRapport.populate('patientId');
+    await nouveauRapport.populate('validePar', 'nom prenom');
+
+    console.log('✅ Rapport créé avec succès, patient:', nouveauRapport.patientId?.nom);
 
     res.status(201).json({ success: true, message: 'Rapport créé', rapport: nouveauRapport });
   } catch (error) {

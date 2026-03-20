@@ -328,6 +328,10 @@ export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
     const pageWidth = doc.internal.pageSize.width;
     await ajouterLogo(doc, laboratoire);
 
+    console.log('📄 Génération PDF pour rapport:', rapport._id);
+    console.log('👤 Patient:', rapport.patientId);
+
+    // ===== EN-TÊTE =====
     doc.setFontSize(20);
     doc.setTextColor(37, 99, 235);
     doc.text(laboratoire?.nom || 'LABOGES', 50, 20);
@@ -335,10 +339,12 @@ export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
     doc.setTextColor(75, 85, 99);
     doc.text('Rapport d\'analyses médicales', 50, 28);
 
+    // ===== NUMÉRO DE RAPPORT =====
     doc.setFontSize(12);
     doc.setTextColor(0, 0, 0);
     doc.text(`Rapport N°: ${rapport._id.slice(-8).toUpperCase()}`, pageWidth - 14, 30, { align: 'right' });
 
+    // ===== INFORMATIONS PATIENT (VÉRIFIÉ) =====
     doc.setFontSize(14);
     doc.setTextColor(37, 99, 235);
     doc.text('PATIENT', 14, 50);
@@ -351,31 +357,50 @@ export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
       doc.setTextColor(75, 85, 99);
       doc.text(`Né(e) le: ${new Date(rapport.patientId.dateNaissance).toLocaleDateString('fr-FR')}`, 14, 68);
       doc.text(`Tél: ${rapport.patientId.telephone}`, 14, 76);
+      if (rapport.patientId.sexe) {
+        doc.text(`Sexe: ${rapport.patientId.sexe === 'M' ? 'Masculin' : 'Féminin'}`, 14, 84);
+      }
+    } else {
+      doc.text('Patient non spécifié', 14, 60);
     }
 
+    // ===== DATE DE VALIDATION =====
     doc.setFontSize(10);
     doc.setTextColor(75, 85, 99);
     doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - 14, 60, { align: 'right' });
     doc.text(`Validé par: ${utilisateur?.prenom} ${utilisateur?.nom}`, pageWidth - 14, 68, { align: 'right' });
 
-    // ===== CONSTRUCTION DU TABLEAU AVEC NORMES ADAPTÉES =====
+    // ===== TABLEAU DES RÉSULTATS =====
+    const sexePatient = rapport.patientId?.sexe;
+    
     const tableData = (rapport.resultats || []).map((r, index) => {
-      let norme = '';
-      
       // Récupérer la norme selon le sexe du patient
-      if (rapport.patientId?.sexe === 'M' && r.valeurReference?.homme) {
-        const vr = r.valeurReference.homme;
-        norme = vr.texte || (vr.min !== null && vr.max !== null ? `${vr.min} - ${vr.max}` : '');
-      } else if (rapport.patientId?.sexe === 'F' && r.valeurReference?.femme) {
-        const vr = r.valeurReference.femme;
-        norme = vr.texte || (vr.min !== null && vr.max !== null ? `${vr.min} - ${vr.max}` : '');
+      let norme = '';
+      let valeurRef = null;
+      
+      if (sexePatient === 'M' && r.valeurReference?.homme) {
+        valeurRef = r.valeurReference.homme;
+        norme = valeurRef.texte || (valeurRef.min !== null && valeurRef.max !== null ? `${valeurRef.min} - ${valeurRef.max}` : '');
+      } else if (sexePatient === 'F' && r.valeurReference?.femme) {
+        valeurRef = r.valeurReference.femme;
+        norme = valeurRef.texte || (valeurRef.min !== null && valeurRef.max !== null ? `${valeurRef.min} - ${valeurRef.max}` : '');
       } else if (r.valeurReference?.enfant) {
-        const vr = r.valeurReference.enfant;
-        norme = vr.texte || (vr.min !== null && vr.max !== null ? `${vr.min} - ${vr.max}` : '');
-      } else if (r.valeurReference?.min !== undefined || r.valeurReference?.max !== undefined) {
+        valeurRef = r.valeurReference.enfant;
+        norme = valeurRef.texte || (valeurRef.min !== null && valeurRef.max !== null ? `${valeurRef.min} - ${valeurRef.max}` : '');
+      } else if (r.valeurReference?.min !== undefined) {
         norme = `${r.valeurReference.min || '-'} - ${r.valeurReference.max || '-'}`;
       }
-      
+
+      // Log de débogage
+      if (index === 0) {
+        console.log('🔍 Première analyse:', {
+          code: r.code,
+          unite: r.unite,
+          norme,
+          valeurRef
+        });
+      }
+
       return [
         (index + 1).toString(),
         r.code || '',
@@ -387,13 +412,21 @@ export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
       ];
     });
 
+    // Si aucune donnée, afficher un message
+    if (tableData.length === 0) {
+      tableData.push(['-', '-', 'Aucune analyse', '-', '-', '-', '-']);
+    }
+
     autoTable(doc, {
-      startY: 90,
+      startY: 100,
       head: [['#', 'Code', 'Analyse', 'Résultat', 'Unité', 'Norme', 'Interprétation']],
       body: tableData,
       theme: 'striped',
       headStyles: { fillColor: [37, 99, 235], textColor: 255 },
-      columnStyles: { 0: { cellWidth: 10 }, 6: { cellWidth: 30, halign: 'center' } },
+      columnStyles: { 
+        0: { cellWidth: 10 }, 
+        6: { cellWidth: 30, halign: 'center' } 
+      },
       didParseCell: (data) => {
         if (data.column.index === 6 && data.cell.raw) {
           const interpretation = data.cell.raw;
@@ -410,6 +443,7 @@ export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
 
     const finalY = doc.lastAutoTable.finalY + 10;
 
+    // ===== QR CODE =====
     if (rapport.qrCode) {
       try {
         const qrDataUrl = await QRCode.toDataURL(rapport.qrCode, { width: 80 });
@@ -417,6 +451,7 @@ export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
       } catch { console.warn('⚠️ QR Code non généré'); }
     }
 
+    // ===== SIGNATURE ET CACHET =====
     if (rapport.signature) {
       doc.setFontSize(10);
       doc.setTextColor(0, 0, 0);
@@ -430,6 +465,7 @@ export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
       doc.text('Cachet officiel', 14, finalY + 10);
     }
 
+    // ===== NOTES =====
     if (rapport.notes) {
       doc.setFontSize(9);
       doc.setTextColor(75, 85, 99);
@@ -438,6 +474,7 @@ export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
       doc.text(splitNotes, 14, finalY + 38);
     }
 
+    // ===== PIED DE PAGE =====
     doc.setFontSize(8);
     doc.setTextColor(150, 150, 150);
     doc.text(
@@ -445,9 +482,10 @@ export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
       pageWidth / 2, 280, { align: 'center' }
     );
 
+    console.log('✅ PDF généré avec succès');
     return doc;
   } catch (error) {
-    console.error('❌ Erreur génération PDF rapport:', error.message);
+    console.error('❌ Erreur génération PDF rapport:', error);
     return null;
   }
 };
