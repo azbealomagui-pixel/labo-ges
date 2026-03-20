@@ -54,48 +54,47 @@ const AnalyseForm = () => {
         try {
           setLoading(true);
           const response = await api.get(`/analyses/${id}`);
-
           if (response.data.success) {
-            const analyseData = response.data.analyse;
+            const a = response.data.analyse;
             setFormData({
-              code: analyseData.code || '',
+              code: a.code || '',
               nom: {
-                fr: analyseData.nom?.fr || '',
-                en: analyseData.nom?.en || '',
-                es: analyseData.nom?.es || ''
+                fr: a.nom?.fr || '',
+                en: a.nom?.en || '',
+                es: a.nom?.es || ''
               },
-              categorie: analyseData.categorie || 'Hématologie',
+              categorie: a.categorie || 'Hématologie',
               prix: {
-                valeur: analyseData.prix?.valeur || 0,
-                devise: analyseData.prix?.devise || 'EUR'
+                valeur: a.prix?.valeur || 0,
+                devise: a.prix?.devise || 'EUR'
               },
-              typeEchantillon: analyseData.typeEchantillon || 'Sang',
-              instructions: analyseData.instructions || '',
-              uniteMesure: analyseData.uniteMesure || '',
+              typeEchantillon: a.typeEchantillon || 'Sang',
+              instructions: a.instructions || '',
+              uniteMesure: a.uniteMesure || '',
               valeursReference: {
                 homme: {
-                  min: analyseData.valeursReference?.homme?.min || '',
-                  max: analyseData.valeursReference?.homme?.max || '',
-                  texte: analyseData.valeursReference?.homme?.texte || ''
+                  min: a.valeursReference?.homme?.min || '',
+                  max: a.valeursReference?.homme?.max || '',
+                  texte: a.valeursReference?.homme?.texte || ''
                 },
                 femme: {
-                  min: analyseData.valeursReference?.femme?.min || '',
-                  max: analyseData.valeursReference?.femme?.max || '',
-                  texte: analyseData.valeursReference?.femme?.texte || ''
+                  min: a.valeursReference?.femme?.min || '',
+                  max: a.valeursReference?.femme?.max || '',
+                  texte: a.valeursReference?.femme?.texte || ''
                 },
                 enfant: {
-                  min: analyseData.valeursReference?.enfant?.min || '',
-                  max: analyseData.valeursReference?.enfant?.max || '',
-                  texte: analyseData.valeursReference?.enfant?.texte || ''
+                  min: a.valeursReference?.enfant?.min || '',
+                  max: a.valeursReference?.enfant?.max || '',
+                  texte: a.valeursReference?.enfant?.texte || ''
                 }
               },
               normesMedicales: {
-                loinc: analyseData.normesMedicales?.loinc || '',
-                snomed: analyseData.normesMedicales?.snomed || '',
-                iso15189: analyseData.normesMedicales?.iso15189 || '',
-                autres: analyseData.normesMedicales?.autres || ''
+                loinc: a.normesMedicales?.loinc || '',
+                snomed: a.normesMedicales?.snomed || '',
+                iso15189: a.normesMedicales?.iso15189 || '',
+                autres: a.normesMedicales?.autres || ''
               },
-              delaiRendu: analyseData.delaiRendu || 24
+              delaiRendu: a.delaiRendu || 24
             });
             toast.success('✅ Analyse chargée');
           } else {
@@ -117,24 +116,15 @@ const AnalyseForm = () => {
   // ===== VALIDATION EN TEMPS RÉEL =====
   const validateField = (name, value) => {
     const newErrors = { ...errors };
+    if (name === 'code' && !value.trim()) newErrors.code = 'Le code est obligatoire';
+    else if (name === 'code') delete newErrors.code;
 
-    if (name === 'code' && !value.trim()) {
-      newErrors.code = 'Le code est obligatoire';
-    } else if (name === 'code') {
-      delete newErrors.code;
-    }
-
-    if (name === 'nom.fr' && !value.trim()) {
-      newErrors['nom.fr'] = 'Le nom est obligatoire';
-    } else if (name === 'nom.fr') {
-      delete newErrors['nom.fr'];
-    }
+    if (name === 'nom.fr' && !value.trim()) newErrors['nom.fr'] = 'Le nom est obligatoire';
+    else if (name === 'nom.fr') delete newErrors['nom.fr'];
 
     if (name === 'prix.valeur' && (parseFloat(value) <= 0 || isNaN(parseFloat(value)))) {
       newErrors['prix.valeur'] = 'Le prix doit être supérieur à 0';
-    } else if (name === 'prix.valeur') {
-      delete newErrors['prix.valeur'];
-    }
+    } else if (name === 'prix.valeur') delete newErrors['prix.valeur'];
 
     setErrors(newErrors);
   };
@@ -178,7 +168,6 @@ const AnalyseForm = () => {
     }
   };
 
-  // ===== VALIDATION FORMULAIRE =====
   const validateForm = () => {
     const newErrors = {};
     if (!formData.code?.trim()) newErrors.code = 'Le code est obligatoire';
@@ -190,7 +179,6 @@ const AnalyseForm = () => {
     return Object.keys(newErrors).length === 0;
   };
 
-  // ===== NETTOYAGE DES DONNÉES =====
   const nettoyerDonnees = () => {
     const valeursReferenceNettoyees = {};
     ['homme', 'femme', 'enfant'].forEach(categorie => {
@@ -232,44 +220,30 @@ const AnalyseForm = () => {
     };
   };
 
-  // ===== SOUMISSION =====
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     if (!user?._id) {
       toast.error('Utilisateur non authentifié');
       return;
     }
-
     if (!validateForm()) {
-      toast.error('Veuillez corriger les erreurs dans le formulaire');
+      toast.error('Veuillez corriger les erreurs');
       return;
     }
-
     setLoading(true);
-
     try {
-      const donneesNettoyees = nettoyerDonnees();
-      const dataToSend = {
-        ...donneesNettoyees,
-        laboratoireId: user?.laboratoireId || user?.espaceId,
-        createdBy: user._id
-      };
-
-      console.log('📦 Données envoyées:', dataToSend);
-
+      const dataToSend = nettoyerDonnees();
       if (id) {
         await api.put(`/analyses/${id}`, dataToSend);
-        toast.success('✅ Analyse modifiée avec succès');
+        toast.success('✅ Analyse modifiée');
       } else {
         await api.post('/analyses', dataToSend);
-        toast.success('✅ Analyse créée avec succès');
+        toast.success('✅ Analyse créée');
       }
-
       navigate('/analyses');
     } catch (err) {
       console.error('❌ Erreur:', err);
-      toast.error(err.response?.data?.message || 'Erreur lors de la sauvegarde');
+      toast.error(err.response?.data?.message || 'Erreur');
     } finally {
       setLoading(false);
     }
@@ -287,7 +261,6 @@ const AnalyseForm = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-4xl mx-auto px-4">
         <div className="bg-white rounded-xl shadow-lg p-8">
-
           {/* Navigation */}
           <div className="mb-6 flex items-center gap-4 border-b pb-4">
             <button onClick={() => navigate('/analyses')} className="text-gray-600 hover:text-gray-900">
@@ -299,9 +272,7 @@ const AnalyseForm = () => {
             </button>
           </div>
 
-          <h1 className="text-2xl font-bold mb-6">
-            {id ? 'Modifier' : 'Nouvelle'} analyse
-          </h1>
+          <h1 className="text-2xl font-bold mb-6">{id ? 'Modifier' : 'Nouvelle'} analyse</h1>
 
           {Object.keys(errors).length > 0 && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -312,48 +283,28 @@ const AnalyseForm = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-
             {/* Code */}
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Code <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="code"
-                value={formData.code}
-                onChange={handleChange}
+              <label className="block text-sm font-medium mb-2">Code <span className="text-red-500">*</span></label>
+              <input type="text" name="code" value={formData.code} onChange={handleChange}
                 className={`w-full px-4 py-2 border rounded-lg ${errors.code ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                placeholder="Ex: GLY001"
-              />
+                placeholder="Ex: GLY001" />
               {errors.code && <p className="mt-1 text-sm text-red-600">{errors.code}</p>}
             </div>
 
             {/* Nom */}
             <div>
-              <label className="block text-sm font-medium mb-2">
-                Nom <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                name="nom.fr"
-                value={formData.nom.fr}
-                onChange={handleChange}
+              <label className="block text-sm font-medium mb-2">Nom <span className="text-red-500">*</span></label>
+              <input type="text" name="nom.fr" value={formData.nom.fr} onChange={handleChange}
                 className={`w-full px-4 py-2 border rounded-lg ${errors['nom.fr'] ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                placeholder="Nom en français"
-              />
+                placeholder="Nom en français" />
               {errors['nom.fr'] && <p className="mt-1 text-sm text-red-600">{errors['nom.fr']}</p>}
             </div>
 
             {/* Catégorie */}
             <div>
               <label className="block text-sm font-medium mb-2">Catégorie *</label>
-              <select
-                name="categorie"
-                value={formData.categorie}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border rounded-lg"
-              >
+              <select name="categorie" value={formData.categorie} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg">
                 {CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
               </select>
             </div>
@@ -362,23 +313,13 @@ const AnalyseForm = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Prix *</label>
-                <input
-                  type="number"
-                  name="prix.valeur"
-                  value={formData.prix.valeur}
-                  onChange={handleChange}
-                  className={`w-full px-4 py-2 border rounded-lg ${errors['prix.valeur'] ? 'border-red-500 bg-red-50' : 'border-gray-300'}`}
-                />
+                <input type="number" name="prix.valeur" value={formData.prix.valeur} onChange={handleChange}
+                  className={`w-full px-4 py-2 border rounded-lg ${errors['prix.valeur'] ? 'border-red-500 bg-red-50' : 'border-gray-300'}`} />
                 {errors['prix.valeur'] && <p className="mt-1 text-sm text-red-600">{errors['prix.valeur']}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Devise</label>
-                <select
-                  name="prix.devise"
-                  value={formData.prix.devise}
-                  onChange={handleChange}
-                  className="w-full px-4 py-2 border rounded-lg"
-                >
+                <select name="prix.devise" value={formData.prix.devise} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg">
                   {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.nom}</option>)}
                 </select>
               </div>
@@ -387,12 +328,7 @@ const AnalyseForm = () => {
             {/* Type échantillon */}
             <div>
               <label className="block text-sm font-medium mb-2">Type échantillon *</label>
-              <select
-                name="typeEchantillon"
-                value={formData.typeEchantillon}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border rounded-lg"
-              >
+              <select name="typeEchantillon" value={formData.typeEchantillon} onChange={handleChange} className="w-full px-4 py-2 border rounded-lg">
                 {ECHANTILLONS.map(e => <option key={e} value={e}>{e}</option>)}
               </select>
             </div>
@@ -400,236 +336,89 @@ const AnalyseForm = () => {
             {/* Unité de mesure */}
             <div>
               <label className="block text-sm font-medium mb-2">Unité de mesure</label>
-              <input
-                type="text"
-                name="uniteMesure"
-                value={formData.uniteMesure}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border rounded-lg"
-                placeholder="Ex: mg/dL, g/L, UI/L, mmol/L"
-              />
-              <p className="text-xs text-gray-500 mt-1">Laissez vide si non applicable</p>
+              <input type="text" name="uniteMesure" value={formData.uniteMesure} onChange={handleChange}
+                className="w-full px-4 py-2 border rounded-lg" placeholder="Ex: mg/dL, g/L, UI/L" />
             </div>
 
-            {/* Délai de rendu */}
+            {/* Délai */}
             <div>
               <label className="block text-sm font-medium mb-2">Délai de rendu (heures)</label>
-              <input
-                type="number"
-                name="delaiRendu"
-                value={formData.delaiRendu}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border rounded-lg"
-                min="1"
-                max="720"
-              />
+              <input type="number" name="delaiRendu" value={formData.delaiRendu} onChange={handleChange}
+                className="w-full px-4 py-2 border rounded-lg" min="1" max="720" />
             </div>
 
             {/* Instructions */}
             <div>
               <label className="block text-sm font-medium mb-2">Instructions</label>
-              <textarea
-                name="instructions"
-                value={formData.instructions}
-                onChange={handleChange}
-                rows="3"
-                className="w-full px-4 py-2 border rounded-lg"
-                placeholder="Instructions particulières pour cette analyse..."
-              />
+              <textarea name="instructions" value={formData.instructions} onChange={handleChange}
+                rows="3" className="w-full px-4 py-2 border rounded-lg" />
             </div>
 
-            {/* ===== VALEURS DE RÉFÉRENCE ===== */}
+            {/* Valeurs de référence */}
             <div className="border-t pt-4 mt-4">
               <h2 className="text-lg font-semibold mb-4">Valeurs de référence</h2>
-              <p className="text-sm text-gray-500 mb-4">Ces valeurs seront utilisées pour interpréter automatiquement les résultats.</p>
-
-              {/* Homme */}
-              <div className="border rounded-lg p-4 mb-4">
-                <h3 className="font-medium mb-3 text-blue-700">👨 Homme</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Min</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="valeursReference.homme.min"
-                      value={formData.valeursReference.homme.min}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Max</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="valeursReference.homme.max"
-                      value={formData.valeursReference.homme.max}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Texte (optionnel)</label>
-                    <input
-                      type="text"
-                      name="valeursReference.homme.texte"
-                      value={formData.valeursReference.homme.texte}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="Ex: < 5.0, > 10.0"
-                    />
+              {['homme', 'femme', 'enfant'].map(g => (
+                <div key={g} className="border rounded-lg p-4 mb-4">
+                  <h3 className="font-medium mb-3 capitalize">{g === 'homme' ? '👨 Homme' : g === 'femme' ? '👩 Femme' : '🧒 Enfant'}</h3>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Min</label>
+                      <input type="number" step="0.01" name={`valeursReference.${g}.min`}
+                        value={formData.valeursReference[g].min} onChange={handleChange}
+                        className="w-full px-3 py-2 border rounded-lg" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium mb-1">Max</label>
+                      <input type="number" step="0.01" name={`valeursReference.${g}.max`}
+                        value={formData.valeursReference[g].max} onChange={handleChange}
+                        className="w-full px-3 py-2 border rounded-lg" />
+                    </div>
+                    <div className="col-span-2">
+                      <label className="block text-sm font-medium mb-1">Texte (optionnel)</label>
+                      <input type="text" name={`valeursReference.${g}.texte`}
+                        value={formData.valeursReference[g].texte} onChange={handleChange}
+                        className="w-full px-3 py-2 border rounded-lg" placeholder="Ex: < 5.0" />
+                    </div>
                   </div>
                 </div>
-              </div>
-
-              {/* Femme */}
-              <div className="border rounded-lg p-4 mb-4">
-                <h3 className="font-medium mb-3 text-pink-600">👩 Femme</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Min</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="valeursReference.femme.min"
-                      value={formData.valeursReference.femme.min}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Max</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="valeursReference.femme.max"
-                      value={formData.valeursReference.femme.max}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Texte (optionnel)</label>
-                    <input
-                      type="text"
-                      name="valeursReference.femme.texte"
-                      value={formData.valeursReference.femme.texte}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="Ex: < 5.0, > 10.0"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Enfant */}
-              <div className="border rounded-lg p-4">
-                <h3 className="font-medium mb-3 text-green-700">🧒 Enfant</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Min</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="valeursReference.enfant.min"
-                      value={formData.valeursReference.enfant.min}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Max</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      name="valeursReference.enfant.max"
-                      value={formData.valeursReference.enfant.max}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium mb-1">Texte (optionnel)</label>
-                    <input
-                      type="text"
-                      name="valeursReference.enfant.texte"
-                      value={formData.valeursReference.enfant.texte}
-                      onChange={handleChange}
-                      className="w-full px-3 py-2 border rounded-lg"
-                      placeholder="Ex: < 5.0, > 10.0"
-                    />
-                  </div>
-                </div>
-              </div>
+              ))}
             </div>
 
-            {/* ===== NORMES MÉDICALES ===== */}
-            <div className="border-t pt-4 mt-4">
-              <h2 className="text-lg font-semibold mb-4">Normes médicales internationales</h2>
-              <p className="text-sm text-gray-500 mb-4">Codes pour l'interopérabilité (optionnel)</p>
+            {/* Normes médicales */}
+            <div className="border-t pt-4">
+              <h2 className="text-lg font-semibold mb-4">Normes médicales</h2>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">LOINC</label>
-                  <input
-                    type="text"
-                    name="normesMedicales.loinc"
-                    value={formData.normesMedicales.loinc}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="Ex: 12345-6"
-                  />
+                  <input type="text" name="normesMedicales.loinc" value={formData.normesMedicales.loinc} onChange={handleChange}
+                    className="w-full px-3 py-2 border rounded-lg" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">SNOMED CT</label>
-                  <input
-                    type="text"
-                    name="normesMedicales.snomed"
-                    value={formData.normesMedicales.snomed}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="Ex: 123456789"
-                  />
+                  <input type="text" name="normesMedicales.snomed" value={formData.normesMedicales.snomed} onChange={handleChange}
+                    className="w-full px-3 py-2 border rounded-lg" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">ISO 15189</label>
-                  <input
-                    type="text"
-                    name="normesMedicales.iso15189"
-                    value={formData.normesMedicales.iso15189}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="Ex: LAB-123"
-                  />
+                  <input type="text" name="normesMedicales.iso15189" value={formData.normesMedicales.iso15189} onChange={handleChange}
+                    className="w-full px-3 py-2 border rounded-lg" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-1">Autres</label>
-                  <input
-                    type="text"
-                    name="normesMedicales.autres"
-                    value={formData.normesMedicales.autres}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border rounded-lg"
-                    placeholder="Autres références"
-                  />
+                  <input type="text" name="normesMedicales.autres" value={formData.normesMedicales.autres} onChange={handleChange}
+                    className="w-full px-3 py-2 border rounded-lg" />
                 </div>
               </div>
             </div>
 
             {/* Boutons */}
             <div className="flex gap-4 pt-4">
-              <button
-                type="submit"
-                disabled={loading || Object.keys(errors).length > 0}
-                className="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50"
-              >
+              <button type="submit" disabled={loading || Object.keys(errors).length > 0}
+                className="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50">
                 {loading ? 'Enregistrement...' : (id ? 'Modifier' : 'Créer')}
               </button>
-              <button
-                type="button"
-                onClick={() => navigate('/analyses')}
-                className="flex-1 bg-gray-200 px-6 py-3 rounded-lg hover:bg-gray-300"
-              >
+              <button type="button" onClick={() => navigate('/analyses')}
+                className="flex-1 bg-gray-200 px-6 py-3 rounded-lg hover:bg-gray-300">
                 Annuler
               </button>
             </div>

@@ -1,7 +1,7 @@
 // ===========================================
 // MODÈLE: Analyse.js
 // RÔLE: Définition d'une analyse médicale (catalogue)
-// VERSION: Complète avec unité et valeurs de référence
+// VERSION: Finale avec unité et valeurs de référence
 // ===========================================
 
 const mongoose = require('mongoose');
@@ -24,16 +24,8 @@ const analyseSchema = new mongoose.Schema({
       required: [true, 'Le nom en français est requis'],
       trim: true
     },
-    en: {
-      type: String,
-      trim: true,
-      default: ''
-    },
-    es: {
-      type: String,
-      trim: true,
-      default: ''
-    }
+    en: { type: String, trim: true, default: '' },
+    es: { type: String, trim: true, default: '' }
   },
 
   // ===== CATÉGORIE =====
@@ -49,16 +41,8 @@ const analyseSchema = new mongoose.Schema({
 
   // ===== PRIX =====
   prix: {
-    valeur: {
-      type: Number,
-      required: true,
-      min: 0
-    },
-    devise: {
-      type: String,
-      enum: ['EUR', 'USD', 'GNF', 'XOF'],
-      default: 'EUR'
-    }
+    valeur: { type: Number, required: true, min: 0 },
+    devise: { type: String, enum: ['EUR', 'USD', 'GNF', 'XOF'], default: 'EUR' }
   },
 
   // ===== ÉCHANTILLON =====
@@ -70,12 +54,7 @@ const analyseSchema = new mongoose.Schema({
   },
 
   // ===== DÉLAI =====
-  delaiRendu: {
-    type: Number,
-    default: 24,
-    min: 1,
-    max: 720 // 30 jours max
-  },
+  delaiRendu: { type: Number, default: 24, min: 1, max: 720 },
 
   // ===== UNITÉ DE MESURE =====
   uniteMesure: {
@@ -105,18 +84,13 @@ const analyseSchema = new mongoose.Schema({
   },
 
   // ===== INSTRUCTIONS =====
-  instructions: {
-    type: String,
-    default: '',
-    trim: true,
-    maxlength: 1000
-  },
+  instructions: { type: String, default: '', trim: true, maxlength: 1000 },
 
   // ===== NORMES MÉDICALES INTERNATIONALES =====
   normesMedicales: {
-    loinc: { type: String, default: '' },    // Logical Observation Identifiers Names and Codes
-    snomed: { type: String, default: '' },   // SNOMED CT
-    iso15189: { type: String, default: '' }, // Norme ISO 15189
+    loinc: { type: String, default: '' },
+    snomed: { type: String, default: '' },
+    iso15189: { type: String, default: '' },
     autres: { type: String, default: '' }
   },
 
@@ -126,22 +100,10 @@ const analyseSchema = new mongoose.Schema({
     ref: 'Laboratoire',
     required: true
   },
-  espaceId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Espace'
-  },
-  createdBy: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: true
-  },
-  actif: {
-    type: Boolean,
-    default: true
-  }
-}, {
-  timestamps: true
-});
+  espaceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Espace' },
+  createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+  actif: { type: Boolean, default: true }
+}, { timestamps: true });
 
 // ===== INDEX =====
 analyseSchema.index({ code: 1 });

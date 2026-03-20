@@ -320,7 +320,7 @@ export const genererPDFAnalyse = async (analyse, laboratoire, utilisateur) => {
 };
 
 // ===========================================
-// PDF RAPPORT (PV D'ANALYSES)
+// PDF RAPPORT (PV D'ANALYSES) - VERSION CORRIGÉE
 // ===========================================
 export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
   try {
@@ -358,15 +358,34 @@ export const genererPDFRapport = async (rapport, utilisateur, laboratoire) => {
     doc.text(`Date: ${new Date().toLocaleDateString('fr-FR')}`, pageWidth - 14, 60, { align: 'right' });
     doc.text(`Validé par: ${utilisateur?.prenom} ${utilisateur?.nom}`, pageWidth - 14, 68, { align: 'right' });
 
-    const tableData = (rapport.resultats || []).map((r, index) => [
-      (index + 1).toString(),
-      r.code || '',
-      r.nom || '',
-      r.valeur?.toString() || '-',
-      r.unite || '',
-      `${r.valeurReference?.min || '-'} - ${r.valeurReference?.max || '-'}`,
-      r.interpretation || ''
-    ]);
+    // ===== CONSTRUCTION DU TABLEAU AVEC NORMES ADAPTÉES =====
+    const tableData = (rapport.resultats || []).map((r, index) => {
+      let norme = '';
+      
+      // Récupérer la norme selon le sexe du patient
+      if (rapport.patientId?.sexe === 'M' && r.valeurReference?.homme) {
+        const vr = r.valeurReference.homme;
+        norme = vr.texte || (vr.min !== null && vr.max !== null ? `${vr.min} - ${vr.max}` : '');
+      } else if (rapport.patientId?.sexe === 'F' && r.valeurReference?.femme) {
+        const vr = r.valeurReference.femme;
+        norme = vr.texte || (vr.min !== null && vr.max !== null ? `${vr.min} - ${vr.max}` : '');
+      } else if (r.valeurReference?.enfant) {
+        const vr = r.valeurReference.enfant;
+        norme = vr.texte || (vr.min !== null && vr.max !== null ? `${vr.min} - ${vr.max}` : '');
+      } else if (r.valeurReference?.min !== undefined || r.valeurReference?.max !== undefined) {
+        norme = `${r.valeurReference.min || '-'} - ${r.valeurReference.max || '-'}`;
+      }
+      
+      return [
+        (index + 1).toString(),
+        r.code || '',
+        r.nom || '',
+        r.valeur?.toString() || '-',
+        r.unite || '',
+        norme || '-',
+        r.interpretation || ''
+      ];
+    });
 
     autoTable(doc, {
       startY: 90,
