@@ -2,7 +2,7 @@
 // PROVIDER: SocketProvider
 // RÔLE: Fournir les données socket à l'application
 // EMPLACEMENT: frontend/src/providers/SocketProvider.jsx
-// MODIFICATION: Ajout chargement initial des non lus et rafraichissement
+// CORRECTION: Connexion immédiate avec join-espace
 // ===========================================
 
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -55,9 +55,15 @@ export const SocketProvider = ({ children }) => {
 
     socketRef.current = newSocket;
 
-    newSocket.emit('join-espace', user.espaceId);
+    // Émettre join-espace dès la connexion
+    newSocket.on('connect', () => {
+      console.log('✅ Socket connecté, rejoignant espace:', user.espaceId);
+      newSocket.emit('join-espace', user.espaceId);
+    });
 
+    // Écouter les nouveaux messages
     newSocket.on('nouveau-message', (data) => {
+      console.log('📨 Nouveau message reçu via socket:', data);
       setNotifications(prev => [data, ...prev]);
       setNonLus(prev => prev + 1);
       
@@ -69,6 +75,7 @@ export const SocketProvider = ({ children }) => {
       }
     });
 
+    // Écouter les alertes d'abonnement
     newSocket.on('abonnement-expire', (data) => {
       setNotifications(prev => [{
         type: 'warning',
@@ -77,6 +84,7 @@ export const SocketProvider = ({ children }) => {
       }, ...prev]);
     });
 
+    // Nettoyage
     return () => {
       if (socketRef.current) {
         socketRef.current.disconnect();

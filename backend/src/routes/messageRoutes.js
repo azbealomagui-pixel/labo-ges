@@ -2,7 +2,7 @@
 // ROUTES: messageRoutes.js
 // RÔLE: Gestion des messages internes
 // AVEC: Notifications Socket.IO et authentification
-// MODIFICATION: Ajout route désarchiver
+// CORRECTION: Route GET sans filtre archive par défaut
 // ===========================================
 
 const express = require('express');
@@ -26,7 +26,6 @@ router.post('/', authenticate, async (req, res) => {
       espaceId
     });
 
-    // Validation
     if (!sujet || !contenu) {
       return res.status(400).json({
         success: false,
@@ -41,7 +40,6 @@ router.post('/', authenticate, async (req, res) => {
       });
     }
 
-    // Vérifier que tous les destinataires existent dans le même espace
     const destinatairesExistants = await User.find({
       _id: { $in: destinataires },
       espaceId: espaceId,
@@ -55,7 +53,6 @@ router.post('/', authenticate, async (req, res) => {
       });
     }
 
-    // Créer le message
     const nouveauMessage = new Message({
       espaceId,
       expediteur,
@@ -67,12 +64,9 @@ router.post('/', authenticate, async (req, res) => {
     });
 
     await nouveauMessage.save();
-
-    // Peupler les données pour la réponse
     await nouveauMessage.populate('expediteur', 'nom prenom email');
     await nouveauMessage.populate('destinataires', 'nom prenom email');
 
-    // ===== ÉMETTRE LES NOTIFICATIONS SOCKET.IO =====
     try {
       const io = req.app.get('io');
       if (io) {
@@ -110,13 +104,12 @@ router.post('/', authenticate, async (req, res) => {
 });
 
 // ===========================================
-// LISTER LES MESSAGES D'UN UTILISATEUR (GET)
+// LISTER LES MESSAGES D'UN UTILISATEUR (GET) - CORRIGÉ
 // ===========================================
 router.get('/utilisateur/:userId', authenticate, async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Vérifier que l'utilisateur demande ses propres messages
     if (userId !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
@@ -130,16 +123,19 @@ router.get('/utilisateur/:userId', authenticate, async (req, res) => {
       $or: [
         { expediteur: userId },
         { destinataires: userId }
-      ],
-      archive: archive === 'true'
+      ]
     };
+
+    // Appliquer le filtre archive SEULEMENT si explicitement demandé
+    if (archive !== undefined) {
+      filter.archive = archive === 'true';
+    }
 
     const messages = await Message.find(filter)
       .populate('expediteur', 'nom prenom email')
       .populate('destinataires', 'nom prenom email')
       .sort({ dateEnvoi: -1 });
 
-    // Ajouter l'info "lu" pour cet utilisateur
     const messagesAvecStatut = messages.map(msg => {
       const msgObj = msg.toObject();
       msgObj.estLu = msg.lu.some(l => l.userId.toString() === userId);
@@ -171,7 +167,6 @@ router.patch('/:id/lire/:userId', authenticate, async (req, res) => {
   try {
     const { id, userId } = req.params;
 
-    // Vérifier que l'utilisateur marque ses propres messages
     if (userId !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,
@@ -187,7 +182,6 @@ router.patch('/:id/lire/:userId', authenticate, async (req, res) => {
       });
     }
 
-    // Vérifier que l'utilisateur est destinataire
     if (!message.destinataires.some(d => d.toString() === userId)) {
       return res.status(403).json({
         success: false,
@@ -195,7 +189,6 @@ router.patch('/:id/lire/:userId', authenticate, async (req, res) => {
       });
     }
 
-    // Vérifier si déjà marqué comme lu
     const dejaLu = message.lu.some(l => l.userId.toString() === userId);
     if (!dejaLu) {
       message.lu.push({ userId });
@@ -231,7 +224,6 @@ router.patch('/:id/archiver', authenticate, async (req, res) => {
       });
     }
 
-    // Vérifier que l'utilisateur est concerné par le message
     if (message.expediteur.toString() !== req.user._id.toString() &&
         !message.destinataires.some(d => d.toString() === req.user._id.toString())) {
       return res.status(403).json({
@@ -259,7 +251,7 @@ router.patch('/:id/archiver', authenticate, async (req, res) => {
 });
 
 // ===========================================
-// DÉSARCHIVER UN MESSAGE (PATCH) - NOUVEAU
+// DÉSARCHIVER UN MESSAGE (PATCH)
 // ===========================================
 router.patch('/:id/desarchiver', authenticate, async (req, res) => {
   try {
@@ -273,7 +265,6 @@ router.patch('/:id/desarchiver', authenticate, async (req, res) => {
       });
     }
 
-    // Vérifier que l'utilisateur est concerné par le message
     if (message.expediteur.toString() !== req.user._id.toString() &&
         !message.destinataires.some(d => d.toString() === req.user._id.toString())) {
       return res.status(403).json({
@@ -315,7 +306,6 @@ router.delete('/:id', authenticate, async (req, res) => {
       });
     }
 
-    // Seul l'expéditeur peut supprimer définitivement
     if (message.expediteur.toString() !== req.user._id.toString()) {
       return res.status(403).json({
         success: false,

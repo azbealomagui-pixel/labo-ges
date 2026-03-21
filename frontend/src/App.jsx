@@ -215,7 +215,7 @@ function App() {
             <div className="flex flex-col md:flex-row justify-between items-center gap-6">
               {/* Copyright */}
               <div className="text-sm text-gray-600">
-                © {new Date().getFullYear()} <span className="font-semibold text-primary-600">LaboGest</span>. 
+                © {new Date().getFullYear()} <span className="font-semibold text-primary-600">LaboGes</span>. 
                 Tous droits réservés.
               </div>
               

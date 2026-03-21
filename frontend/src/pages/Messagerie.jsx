@@ -2,7 +2,7 @@
 // PAGE: Messagerie
 // RÔLE: Communication interne entre membres
 // VERSION: Avec onglets, désarchivage, badge non lus et navigation
-// MODIFICATION: Ajout boutons de navigation vers Dashboard et autres pages
+// CORRECTION: Récupération de tous les messages sans filtre API
 // ===========================================
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -28,9 +28,10 @@ const Messagerie = () => {
     contenu: ''
   });
 
-  // ===== CHARGER LES MESSAGES =====
+  // ===== CHARGER LES MESSAGES (TOUS, SANS FILTRE API) =====
   const fetchMessages = useCallback(async () => {
     try {
+      // Ne pas passer de paramètre archive - on récupère TOUS les messages
       const response = await api.get(`/messages/utilisateur/${user._id}`);
       setMessages(response.data.messages || []);
     } catch (error) {
@@ -57,9 +58,9 @@ const Messagerie = () => {
     loadData();
   }, [fetchMessages, fetchMembres]);
 
-  // ===== FILTRAGE DES MESSAGES =====
+  // ===== FILTRAGE DES MESSAGES (côté frontend) =====
   const messagesFiltres = messages.filter(msg => 
-    afficherArchives ? msg.archive : !msg.archive
+    afficherArchives ? msg.archive === true : msg.archive !== true
   );
 
   // ===== COMPTEUR NON LUS =====
@@ -165,7 +166,7 @@ const Messagerie = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-7xl mx-auto px-4">
         
-        {/* ===== BOUTONS DE NAVIGATION ===== */}
+        {/* Boutons de navigation */}
         <div className="flex items-center gap-3 mb-6">
           <button
             onClick={() => navigate('/dashboard')}
@@ -217,7 +218,7 @@ const Messagerie = () => {
           </button>
         </div>
 
-        {/* ===== NAVIGATION PAR ONGLETS ===== */}
+        {/* Navigation par onglets */}
         <div className="flex gap-2 mb-6 border-b border-gray-200">
           <button
             onClick={() => setAfficherArchives(false)}
