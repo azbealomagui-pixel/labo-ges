@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: GestionMembres
 // RÔLE: Gérer les membres d'un espace
-// VERSION: Avec permissions et délégation
+// VERSION: Finale sans bug
 // ===========================================
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -9,7 +9,6 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'react-toastify';
 import api from '../services/api';
 import useAuth from '../hooks/useAuth';
-import PermissionModal from '../components/PermissionModal';
 import { IconAdd, IconEdit, IconDelete } from '../assets';
 
 const ROLES = [
@@ -26,6 +25,7 @@ const GestionMembres = () => {
   const { user } = useAuth();
   const [membres, setMembres] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [formData, setFormData] = useState({
     nom: '',
@@ -37,30 +37,47 @@ const GestionMembres = () => {
   });
   const [errors, setErrors] = useState({});
 
-  // ===== ÉTATS POUR LES MODALES =====
+  // ===== ÉTAT POUR LA MODALE DE SUPPRESSION =====
   const [deleteModal, setDeleteModal] = useState({
     isOpen: false,
     membreId: null,
     membreNom: ''
   });
 
-  const [permissionModal, setPermissionModal] = useState({
-    isOpen: false,
-    membre: null
-  });
-
   // ===== CHARGER LES MEMBRES =====
   const fetchMembres = useCallback(async () => {
     try {
-      const response = await api.get(`/espaces/${user.espaceId}/membres`);
+      setLoading(true);
+      setError(null);
+      
+      const espaceId = user?.espaceId || user?.laboratoireId;
+      
+      if (!espaceId) {
+        console.error('❌ espaceId manquant dans user:', user);
+        setError('Espace non identifié');
+        toast.error('Espace non identifié');
+        return;
+      }
+
+      console.log('🔍 Chargement membres pour espace:', espaceId);
+      
+      const response = await api.get(`/espaces/${espaceId}/membres`);
+      
+      console.log('✅ Réponse API:', response.data);
+      
       setMembres(response.data.membres || []);
     } catch (error) {
-      console.error('❌ Erreur chargement membres:', error);
-      toast.error('Impossible de charger la liste des membres. Vérifiez votre connexion.');
+      console.error('❌ Erreur chargement membres:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      setError(error.response?.data?.message || 'Erreur chargement membres');
+      toast.error('Impossible de charger la liste des membres');
     } finally {
       setLoading(false);
     }
-  }, [user.espaceId]);
+  }, [user]);
 
   useEffect(() => {
     fetchMembres();
@@ -88,7 +105,7 @@ const GestionMembres = () => {
         if (!value.trim()) {
           newErrors.email = 'L\'email est obligatoire';
         } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
-          newErrors.email = 'Format email invalide (ex: nom@domaine.com)';
+          newErrors.email = 'Format email invalide';
         } else {
           delete newErrors.email;
         }
@@ -126,11 +143,18 @@ const GestionMembres = () => {
       return;
     }
 
+    const espaceId = user?.espaceId || user?.laboratoireId;
+    
+    if (!espaceId) {
+      toast.error('Espace non identifié');
+      return;
+    }
+
     try {
-      const response = await api.post(`/espaces/${user.espaceId}/membres`, formData);
+      const response = await api.post(`/espaces/${espaceId}/membres`, formData);
 
       if (response.data.success) {
-        toast.success(`✅ ${formData.prenom} ${formData.nom} a été ajouté comme ${ROLES.find(r => r.value === formData.role)?.label}`);
+        toast.success(`✅ Membre ajouté avec succès`);
         setShowForm(false);
         setFormData({ nom: '', prenom: '', email: '', password: '', role: 'technicien', poste: '' });
         fetchMembres();
@@ -139,7 +163,7 @@ const GestionMembres = () => {
       console.error('❌ Erreur ajout membre:', error);
       
       if (error.response?.status === 409) {
-        toast.error('Cet email est déjà utilisé par un autre compte');
+        toast.error('Cet email est déjà utilisé');
       } else {
         toast.error(error.response?.data?.message || 'Erreur lors de l\'ajout du membre');
       }
@@ -148,20 +172,24 @@ const GestionMembres = () => {
 
   // ===== CHANGER LE RÔLE =====
   const handleRoleChange = async (userId, newRole, nom, prenom) => {
+    const espaceId = user?.espaceId || user?.laboratoireId;
+    
     try {
-      await api.put(`/espaces/${user.espaceId}/membres/${userId}`, { role: newRole });
-      toast.success(`✅ Le rôle de ${prenom} ${nom} a été mis à jour (${ROLES.find(r => r.value === newRole)?.label})`);
+      await api.put(`/espaces/${espaceId}/membres/${userId}`, { role: newRole });
+      toast.success(`✅ Le rôle de ${prenom} ${nom} a été mis à jour`);
       fetchMembres();
     } catch (error) {
       console.error('❌ Erreur mise à jour rôle:', error);
-      toast.error('Impossible de modifier le rôle. Veuillez réessayer.');
+      toast.error('Impossible de modifier le rôle');
     }
   };
 
   // ===== DÉSACTIVER/ACTIVER =====
   const handleToggleActif = async (userId, actif, nom, prenom) => {
+    const espaceId = user?.espaceId || user?.laboratoireId;
+    
     try {
-      await api.put(`/espaces/${user.espaceId}/membres/${userId}`, { actif: !actif });
+      await api.put(`/espaces/${espaceId}/membres/${userId}`, { actif: !actif });
       toast.success(`${prenom} ${nom} est maintenant ${!actif ? 'actif' : 'inactif'}`);
       fetchMembres();
     } catch (error) {
@@ -170,7 +198,7 @@ const GestionMembres = () => {
     }
   };
 
-  // ===== GESTION DES MODALES =====
+  // ===== OUVRIR LA MODALE DE SUPPRESSION =====
   const openDeleteModal = (id, nom, prenom) => {
     setDeleteModal({
       isOpen: true,
@@ -179,22 +207,18 @@ const GestionMembres = () => {
     });
   };
 
-  const openPermissionModal = (membre) => {
-    setPermissionModal({
-      isOpen: true,
-      membre
-    });
-  };
-
+  // ===== SUPPRIMER DÉFINITIVEMENT =====
   const handleConfirmDelete = async () => {
+    const espaceId = user?.espaceId || user?.laboratoireId;
+    
     try {
-      await api.delete(`/users/${deleteModal.membreId}`);
+      await api.delete(`/espaces/${espaceId}/membres/${deleteModal.membreId}`);
       toast.success(`🗑️ ${deleteModal.membreNom} a été supprimé définitivement`);
       setDeleteModal({ isOpen: false, membreId: null, membreNom: '' });
       fetchMembres();
     } catch (error) {
       console.error('❌ Erreur suppression:', error);
-      toast.error('❌ Échec de la suppression. Veuillez réessayer.');
+      toast.error('❌ Échec de la suppression');
     }
   };
 
@@ -203,6 +227,25 @@ const GestionMembres = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary-600 border-t-transparent"></div>
+      </div>
+    );
+  }
+
+  // ===== AFFICHAGE D'ERREUR =====
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-8 text-center">
+            <p className="text-red-600 mb-4">{error}</p>
+            <button
+              onClick={fetchMembres}
+              className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700"
+            >
+              Réessayer
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -228,7 +271,7 @@ const GestionMembres = () => {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">Gestion des membres</h1>
-            <p className="text-gray-600 mt-1">{membres.length} membre{membres.length > 1 ? 's' : ''}</p>
+            <p className="text-gray-600 mt-1">{membres.length} membre(s)</p>
           </div>
           
           <button
@@ -250,7 +293,7 @@ const GestionMembres = () => {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Nom <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium mb-1">Nom *</label>
                   <input
                     type="text"
                     name="nom"
@@ -264,7 +307,7 @@ const GestionMembres = () => {
                   {errors.nom && <p className="text-sm text-red-600 mt-1">{errors.nom}</p>}
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1">Prénom <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-medium mb-1">Prénom *</label>
                   <input
                     type="text"
                     name="prenom"
@@ -280,7 +323,7 @@ const GestionMembres = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Email <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-1">Email *</label>
                 <input
                   type="email"
                   name="email"
@@ -295,7 +338,7 @@ const GestionMembres = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Mot de passe <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium mb-1">Mot de passe *</label>
                 <input
                   type="password"
                   name="password"
@@ -337,17 +380,10 @@ const GestionMembres = () => {
               </div>
 
               <div className="flex gap-4 pt-2">
-                <button 
-                  type="submit" 
-                  className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition-colors"
-                >
+                <button type="submit" className="bg-primary-600 text-white px-6 py-2 rounded-lg hover:bg-primary-700 transition-colors">
                   Créer le membre
                 </button>
-                <button 
-                  type="button" 
-                  onClick={() => setShowForm(false)} 
-                  className="bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors"
-                >
+                <button type="button" onClick={() => setShowForm(false)} className="bg-gray-200 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors">
                   Annuler
                 </button>
               </div>
@@ -360,46 +396,42 @@ const GestionMembres = () => {
           <table className="min-w-full">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Membre</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rôle</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Poste</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
-                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Membre</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Contact</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Rôle</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Poste</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Statut</th>
+                <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="divide-y divide-gray-200">
               {membres.length === 0 ? (
                 <tr>
                   <td colSpan="6" className="px-6 py-12 text-center text-gray-500">
-                    Aucun membre dans cet espace pour le moment.
+                    Aucun membre dans cet espace
                   </td>
                 </tr>
               ) : (
                 membres.map(m => (
                   <tr key={m._id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4">
                       <div className="font-medium text-gray-900">{m.nom} {m.prenom}</div>
                       {m.estProprietaire && (
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 mt-1">
                           👑 Propriétaire
                         </span>
                       )}
-                      {m.deleguePar && new Date(m.dateFinDelegation) > new Date() && (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800 mt-1 ml-1">
-                          🤝 Délégué
-                        </span>
-                      )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{m.email}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 text-sm text-gray-600">{m.email}</td>
+                    <td className="px-6 py-4">
                       {m.estProprietaire ? (
                         <span className="text-sm font-medium text-gray-900">Directeur</span>
                       ) : (
                         <select
                           value={m.role}
                           onChange={(e) => handleRoleChange(m._id, e.target.value, m.prenom, m.nom)}
-                          className="px-2 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                          className="px-2 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-primary-500"
+                          disabled={m.estProprietaire}
                         >
                           {ROLES.filter(r => r.value !== 'directeur').map(r => (
                             <option key={r.value} value={r.value}>{r.label}</option>
@@ -407,30 +439,18 @@ const GestionMembres = () => {
                         </select>
                       )}
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{m.poste || '—'}</td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4 text-sm text-gray-600">{m.poste || '—'}</td>
+                    <td className="px-6 py-4">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                         m.actif ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
                       }`}>
                         {m.actif ? 'Actif' : 'Inactif'}
                       </span>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
+                    <td className="px-6 py-4">
                       <div className="flex justify-center gap-2">
                         {!m.estProprietaire && (
                           <>
-                            {/* Bouton Permissions */}
-                            <button
-                              onClick={() => openPermissionModal(m)}
-                              className="p-2 text-purple-600 hover:bg-purple-50 rounded-lg transition-colors"
-                              title="Gérer les permissions"
-                            >
-                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                              </svg>
-                            </button>
-
-                            {/* Bouton Activer/Désactiver */}
                             <button
                               onClick={() => handleToggleActif(m._id, m.actif, m.prenom, m.nom)}
                               className={`p-2 rounded-lg transition-colors ${
@@ -442,8 +462,6 @@ const GestionMembres = () => {
                             >
                               {m.actif ? '🔴' : '🟢'}
                             </button>
-
-                            {/* Bouton Supprimer */}
                             <button
                               onClick={() => openDeleteModal(m._id, m.nom, m.prenom)}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -496,15 +514,6 @@ const GestionMembres = () => {
             </div>
           </div>
         )}
-
-        {/* ===== MODALE DES PERMISSIONS ===== */}
-        <PermissionModal
-          isOpen={permissionModal.isOpen}
-          onClose={() => setPermissionModal({ isOpen: false, membre: null })}
-          membre={permissionModal.membre}
-          espaceId={user.espaceId}
-          onUpdate={fetchMembres}
-        />
       </div>
     </div>
   );
