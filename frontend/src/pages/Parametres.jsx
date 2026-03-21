@@ -73,7 +73,7 @@ const Parametres = () => {
     }
   }, [user, espaceFromAuth]);
 
-  const handleSubmit = async (e) => {
+  /*const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
@@ -86,6 +86,35 @@ const Parametres = () => {
     } catch (error) {
       console.error('❌ Erreur mise à jour:', error);
       toast.error('Erreur lors de la mise à jour');
+    } finally {
+      setLoading(false);
+    }
+  };*/
+
+  // ===== METTRE À JOUR =====
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      // Utiliser l'ID de l'espace déjà chargé (complet)
+      const espaceId = espace?._id;
+      
+      if (!espaceId) {
+        toast.error('ID espace non trouvé');
+        setLoading(false);
+        return;
+      }
+
+      const response = await api.put(`/espaces/${espaceId}`, formData);
+      
+      if (response.data.success) {
+        toast.success('✅ Paramètres mis à jour avec succès');
+        setEspace(response.data.espace);
+      }
+    } catch (error) {
+      console.error('❌ Erreur mise à jour:', error);
+      toast.error(error.response?.data?.message || 'Erreur lors de la mise à jour');
     } finally {
       setLoading(false);
     }
