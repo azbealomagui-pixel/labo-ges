@@ -1,7 +1,8 @@
 // ===========================================
 // PAGE: Dashboard
 // RÔLE: Tableau de bord avec statistiques réelles
-// VERSION: Finale avec affichage entreprise
+// VERSION: Finale avec affichage entreprise et badge non lus
+// MODIFICATION: Ajout badge compteur messages non lus
 // ===========================================
 
 import React, { useEffect, useState } from 'react';
@@ -11,6 +12,7 @@ import useAuth from '../hooks/useAuth';
 import api from '../services/api';
 import ActivityChart from '../components/dashboard/ActivityChart';
 import Notifications from '../components/Notifications';
+import { useSocket } from '../context/SocketContext';
 
 // Imports des icônes
 import {
@@ -25,6 +27,7 @@ import {
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { nonLus } = useSocket();
   const [showAdminMenu, setShowAdminMenu] = useState(false);
   const [stats, setStats] = useState({
     patients: 0,
@@ -211,6 +214,11 @@ const Dashboard = () => {
                         >
                           <span className="text-lg">💬</span>
                           Messagerie
+                          {nonLus > 0 && (
+                            <span className="ml-auto bg-red-500 text-white text-xs rounded-full px-2 py-0.5">
+                              {nonLus}
+                            </span>
+                          )}
                         </button>
 
                         <div className="border-t border-gray-100 my-1"></div>
@@ -239,8 +247,8 @@ const Dashboard = () => {
                 )}
               </div>
 
-              {/* Informations utilisateur */}
-              <div className="text-right">
+              {/* Informations utilisateur avec badge messages non lus */}
+              <div className="text-right relative">
                 <p className="text-sm font-medium text-gray-900">
                   {user?.prenom} {user?.nom}
                 </p>
@@ -255,6 +263,12 @@ const Dashboard = () => {
                 <p className="text-xs text-gray-400 mt-1">
                   à {entrepriseNom || 'LaboGes'}
                 </p>
+                {/* Badge messages non lus */}
+                {nonLus > 0 && (
+                  <div className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center shadow-md">
+                    {nonLus > 9 ? '9+' : nonLus}
+                  </div>
+                )}
               </div>
 
               {/* Bouton déconnexion */}

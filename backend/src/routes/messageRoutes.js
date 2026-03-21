@@ -2,21 +2,22 @@
 // ROUTES: messageRoutes.js
 // RÔLE: Gestion des messages internes
 // AVEC: Notifications Socket.IO et authentification
+// MODIFICATION: Ajout route désarchiver
 // ===========================================
 
 const express = require('express');
 const Message = require('../models/Message');
 const User = require('../models/User');
-const { authenticate } = require('../middleware/auth'); // ← AJOUT
+const { authenticate } = require('../middleware/auth');
 const router = express.Router();
 
 // ===========================================
 // ENVOYER UN MESSAGE (POST)
 // ===========================================
-router.post('/', authenticate, async (req, res) => { // ← AJOUT authenticate
+router.post('/', authenticate, async (req, res) => {
   try {
     const { espaceId, destinataires, sujet, contenu, piecesJointes } = req.body;
-    const expediteur = req.user._id; // ← Récupéré depuis authenticate
+    const expediteur = req.user._id;
 
     console.log('📥 Message reçu:', {
       expediteur,
@@ -76,7 +77,7 @@ router.post('/', authenticate, async (req, res) => { // ← AJOUT authenticate
       const io = req.app.get('io');
       if (io) {
         nouveauMessage.destinataires.forEach(destinataire => {
-          console.log(`📢 Notification envoyée à ${destinataire._id || destinataire}`);
+          console.log(`📢 Notification envoyée à ${destinataire._id?.toString() || destinataire}`);
           io.to(destinataire._id?.toString() || destinataire.toString()).emit('nouveau-message', {
             messageId: nouveauMessage._id,
             expediteur: {
@@ -111,7 +112,7 @@ router.post('/', authenticate, async (req, res) => { // ← AJOUT authenticate
 // ===========================================
 // LISTER LES MESSAGES D'UN UTILISATEUR (GET)
 // ===========================================
-router.get('/utilisateur/:userId', authenticate, async (req, res) => { // ← AJOUT authenticate
+router.get('/utilisateur/:userId', authenticate, async (req, res) => {
   try {
     const { userId } = req.params;
 
@@ -166,7 +167,7 @@ router.get('/utilisateur/:userId', authenticate, async (req, res) => { // ← AJ
 // ===========================================
 // MARQUER UN MESSAGE COMME LU (PATCH)
 // ===========================================
-router.patch('/:id/lire/:userId', authenticate, async (req, res) => { // ← AJOUT authenticate
+router.patch('/:id/lire/:userId', authenticate, async (req, res) => {
   try {
     const { id, userId } = req.params;
 
@@ -218,7 +219,7 @@ router.patch('/:id/lire/:userId', authenticate, async (req, res) => { // ← AJO
 // ===========================================
 // ARCHIVER UN MESSAGE (PATCH)
 // ===========================================
-router.patch('/:id/archiver', authenticate, async (req, res) => { // ← AJOUT authenticate
+router.patch('/:id/archiver', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -258,9 +259,51 @@ router.patch('/:id/archiver', authenticate, async (req, res) => { // ← AJOUT a
 });
 
 // ===========================================
+// DÉSARCHIVER UN MESSAGE (PATCH) - NOUVEAU
+// ===========================================
+router.patch('/:id/desarchiver', authenticate, async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const message = await Message.findById(id);
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message non trouvé'
+      });
+    }
+
+    // Vérifier que l'utilisateur est concerné par le message
+    if (message.expediteur.toString() !== req.user._id.toString() &&
+        !message.destinataires.some(d => d.toString() === req.user._id.toString())) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès non autorisé'
+      });
+    }
+
+    message.archive = false;
+    await message.save();
+
+    res.json({
+      success: true,
+      message: 'Message désarchivé',
+      data: message
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur désarchivage:', error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Erreur serveur'
+    });
+  }
+});
+
+// ===========================================
 // SUPPRIMER UN MESSAGE (DELETE)
 // ===========================================
-router.delete('/:id', authenticate, async (req, res) => { // ← AJOUT authenticate
+router.delete('/:id', authenticate, async (req, res) => {
   try {
     const { id } = req.params;
 
