@@ -1,20 +1,29 @@
 // ===========================================
 // ROUTES: messageRoutes.js
 // RÔLE: Gestion des messages internes
-// AVEC: Notifications Socket.IO intégrées
+// AVEC: Notifications Socket.IO et authentification
 // ===========================================
 
 const express = require('express');
 const Message = require('../models/Message');
 const User = require('../models/User');
+const { authenticate } = require('../middleware/auth'); // ← AJOUT
 const router = express.Router();
 
 // ===========================================
 // ENVOYER UN MESSAGE (POST)
 // ===========================================
-router.post('/', async (req, res) => {
+router.post('/', authenticate, async (req, res) => { // ← AJOUT authenticate
   try {
-    const { espaceId, expediteur, destinataires, sujet, contenu, piecesJointes } = req.body;
+    const { espaceId, destinataires, sujet, contenu, piecesJointes } = req.body;
+    const expediteur = req.user._id; // ← Récupéré depuis authenticate
+
+    console.log('📥 Message reçu:', {
+      expediteur,
+      destinataires,
+      sujet,
+      espaceId
+    });
 
     // Validation
     if (!sujet || !contenu) {
@@ -24,11 +33,32 @@ router.post('/', async (req, res) => {
       });
     }
 
+    if (!destinataires || destinataires.length === 0) {
+      return res.status(400).json({
+        success: false,
+        message: 'Au moins un destinataire requis'
+      });
+    }
+
+    // Vérifier que tous les destinataires existent dans le même espace
+    const destinatairesExistants = await User.find({
+      _id: { $in: destinataires },
+      espaceId: espaceId,
+      actif: true
+    });
+
+    if (destinatairesExistants.length !== destinataires.length) {
+      return res.status(400).json({
+        success: false,
+        message: 'Certains destinataires n\'existent pas ou sont inactifs'
+      });
+    }
+
     // Créer le message
     const nouveauMessage = new Message({
       espaceId,
       expediteur,
-      destinataires: destinataires || [],
+      destinataires,
       sujet,
       contenu,
       piecesJointes: piecesJointes || [],
@@ -43,12 +73,17 @@ router.post('/', async (req, res) => {
 
     // ===== ÉMETTRE LES NOTIFICATIONS SOCKET.IO =====
     try {
-      const io = req.app.get('io'); // Récupérer l'instance io depuis l'app
+      const io = req.app.get('io');
       if (io) {
-        nouveauMessage.destinataires.forEach(destinataireId => {
-          io.to(destinataireId.toString()).emit('nouveau-message', {
+        nouveauMessage.destinataires.forEach(destinataire => {
+          console.log(`📢 Notification envoyée à ${destinataire._id || destinataire}`);
+          io.to(destinataire._id?.toString() || destinataire.toString()).emit('nouveau-message', {
             messageId: nouveauMessage._id,
-            expediteur: nouveauMessage.expediteur,
+            expediteur: {
+              _id: req.user._id,
+              nom: req.user.nom,
+              prenom: req.user.prenom
+            },
             sujet: nouveauMessage.sujet,
             date: nouveauMessage.dateEnvoi
           });
@@ -56,7 +91,6 @@ router.post('/', async (req, res) => {
       }
     } catch (socketError) {
       console.error('❌ Erreur envoi notification socket:', socketError);
-      // On continue, le message est quand même sauvegardé
     }
 
     res.status(201).json({
@@ -77,9 +111,18 @@ router.post('/', async (req, res) => {
 // ===========================================
 // LISTER LES MESSAGES D'UN UTILISATEUR (GET)
 // ===========================================
-router.get('/utilisateur/:userId', async (req, res) => {
+router.get('/utilisateur/:userId', authenticate, async (req, res) => { // ← AJOUT authenticate
   try {
     const { userId } = req.params;
+
+    // Vérifier que l'utilisateur demande ses propres messages
+    if (userId !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès non autorisé'
+      });
+    }
+
     const { archive } = req.query;
 
     const filter = {
@@ -103,6 +146,8 @@ router.get('/utilisateur/:userId', async (req, res) => {
       return msgObj;
     });
 
+    console.log(`📬 ${messagesAvecStatut.length} messages pour ${userId}`);
+
     res.json({
       success: true,
       count: messages.length,
@@ -121,15 +166,31 @@ router.get('/utilisateur/:userId', async (req, res) => {
 // ===========================================
 // MARQUER UN MESSAGE COMME LU (PATCH)
 // ===========================================
-router.patch('/:id/lire/:userId', async (req, res) => {
+router.patch('/:id/lire/:userId', authenticate, async (req, res) => { // ← AJOUT authenticate
   try {
     const { id, userId } = req.params;
+
+    // Vérifier que l'utilisateur marque ses propres messages
+    if (userId !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès non autorisé'
+      });
+    }
 
     const message = await Message.findById(id);
     if (!message) {
       return res.status(404).json({
         success: false,
         message: 'Message non trouvé'
+      });
+    }
+
+    // Vérifier que l'utilisateur est destinataire
+    if (!message.destinataires.some(d => d.toString() === userId)) {
+      return res.status(403).json({
+        success: false,
+        message: 'Vous n\'êtes pas destinataire de ce message'
       });
     }
 
@@ -157,15 +218,29 @@ router.patch('/:id/lire/:userId', async (req, res) => {
 // ===========================================
 // ARCHIVER UN MESSAGE (PATCH)
 // ===========================================
-router.patch('/:id/archiver', async (req, res) => {
+router.patch('/:id/archiver', authenticate, async (req, res) => { // ← AJOUT authenticate
   try {
     const { id } = req.params;
 
-    const message = await Message.findByIdAndUpdate(
-      id,
-      { archive: true },
-      { new: true }
-    );
+    const message = await Message.findById(id);
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message non trouvé'
+      });
+    }
+
+    // Vérifier que l'utilisateur est concerné par le message
+    if (message.expediteur.toString() !== req.user._id.toString() &&
+        !message.destinataires.some(d => d.toString() === req.user._id.toString())) {
+      return res.status(403).json({
+        success: false,
+        message: 'Accès non autorisé'
+      });
+    }
+
+    message.archive = true;
+    await message.save();
 
     res.json({
       success: true,
@@ -185,9 +260,25 @@ router.patch('/:id/archiver', async (req, res) => {
 // ===========================================
 // SUPPRIMER UN MESSAGE (DELETE)
 // ===========================================
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticate, async (req, res) => { // ← AJOUT authenticate
   try {
     const { id } = req.params;
+
+    const message = await Message.findById(id);
+    if (!message) {
+      return res.status(404).json({
+        success: false,
+        message: 'Message non trouvé'
+      });
+    }
+
+    // Seul l'expéditeur peut supprimer définitivement
+    if (message.expediteur.toString() !== req.user._id.toString()) {
+      return res.status(403).json({
+        success: false,
+        message: 'Seul l\'expéditeur peut supprimer ce message'
+      });
+    }
 
     await Message.findByIdAndDelete(id);
 
