@@ -1,172 +1,20 @@
-// ===========================================
-// FICHIER: src/routes/userRoutes.js
-// RÔLE: Routes pour la gestion des utilisateurs
-// VERSION: Stable avec bcrypt
-// ===========================================
-
 const express = require('express');
-const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const crypto = require('crypto');
-const nodemailer = require('nodemailer');
-const PasswordReset = require('../models/PasswordReset');
-const AuditLog = require('../models/AuditLog');
-const { checkPermission } = require('../middleware/checkPermission');
 const router = express.Router();
 
 // ===========================================
-// CRÉER UN UTILISATEUR (POST)
-// ===========================================
-router.post('/', checkPermission('CREATE_USER'), async (req, res) => {
-  try {
-    const { nom, prenom, email, password, role, laboratoireId } = req.body;
-    
-    const missingFields = [];
-    if (!nom) missingFields.push('nom');
-    if (!prenom) missingFields.push('prenom');
-    if (!email) missingFields.push('email');
-    if (!password) missingFields.push('password');
-
-    if (missingFields.length > 0) {
-      return res.status(400).json({
-        success: false,
-        message: 'Champs obligatoires manquants',
-        required: missingFields
-      });
-    }
-    
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(409).json({
-        success: false,
-        message: 'Cet email est déjà utilisé'
-      });
-    }
-    
-    const userData = {
-      nom,
-      prenom,
-      email,
-      password,
-      role: role || 'technicien'
-    };
-
-    if (laboratoireId) {
-      userData.laboratoireId = new mongoose.Types.ObjectId(laboratoireId);
-    }
-
-    const newUser = new User(userData);
-    await newUser.save();
-    
-    if (req.user) {
-      await AuditLog.create({
-        espaceId: req.user?.espaceId || userData.laboratoireId,
-        utilisateurId: req.user?._id || newUser._id,
-        action: 'CREATE_USER',
-        cible: {
-          type: 'User',
-          id: newUser._id,
-          nom: `${newUser.prenom} ${newUser.nom}`
-        },
-        details: { role: newUser.role },
-        ip: req.ip,
-        userAgent: req.headers['user-agent']
-      });
-    }
-    
-    const userResponse = newUser.toPublicJSON();
-    
-    res.status(201).json({
-      success: true,
-      message: 'Utilisateur créé avec succès',
-      user: userResponse
-    });
-    
-  } catch (error) {
-    console.error('❌ Erreur création utilisateur:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Erreur serveur'
-    });
-  }
-});
-
-// ===========================================
-// LISTER TOUS LES UTILISATEURS (GET)
-// ===========================================
-router.get('/', checkPermission('VIEW_USERS'), async (req, res) => {
-  try {
-    const users = await User.find()
-      .select('-password')
-      .sort({ createdAt: -1 });
-
-    res.json({
-      success: true,
-      count: users.length,
-      users
-    });
-  } catch (error) {
-    console.error('❌ Erreur listage utilisateurs:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Erreur serveur'
-    });
-  }
-});
-
-// ===========================================
-// OBTENIR UN UTILISATEUR PAR ID (GET)
-// ===========================================
-router.get('/:id', checkPermission('VIEW_USERS'), async (req, res) => {
-  try {
-    const user = await User.findById(req.params.id).select('-password');
-    
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Utilisateur non trouvé'
-      });
-    }
-
-    res.json({
-      success: true,
-      user
-    });
-  } catch (error) {
-    console.error('❌ Erreur récupération utilisateur:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Erreur serveur'
-    });
-  }
-});
-
-// ===========================================
-// INSCRIPTION D'UN NOUVEL UTILISATEUR (POST /register)
+// INSCRIPTION (POST /register)
 // ===========================================
 router.post('/register', async (req, res) => {
   try {
     const { nom, prenom, email, password } = req.body;
 
-    const missingFields = [];
-    if (!nom) missingFields.push('nom');
-    if (!prenom) missingFields.push('prenom');
-    if (!email) missingFields.push('email');
-    if (!password) missingFields.push('password');
-
-    if (missingFields.length > 0) {
+    // Validation simple
+    if (!nom || !prenom || !email || !password) {
       return res.status(400).json({
         success: false,
-        message: 'Tous les champs sont obligatoires',
-        required: missingFields
-      });
-    }
-
-    if (!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Format email invalide'
+        message: 'Tous les champs sont obligatoires'
       });
     }
 
@@ -177,7 +25,8 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
+    // Vérifier si l'email existe déjà
+    const existingUser = await User.findOne({ email: email.toLowerCase() });
     if (existingUser) {
       return res.status(409).json({
         success: false,
@@ -185,59 +34,55 @@ router.post('/register', async (req, res) => {
       });
     }
 
+    // Créer l'utilisateur (le pre-save va hasher le mot de passe)
     const newUser = new User({
       nom: nom.trim(),
       prenom: prenom.trim(),
       email: email.toLowerCase().trim(),
-      password,
+      password: password,
       role: 'manager_labo',
       estProprietaire: false,
       actif: true
     });
 
     await newUser.save();
-    console.log(`✅ Nouvel utilisateur créé: ${email}`);
 
-    const userResponse = {
-      _id: newUser._id,
-      nom: newUser.nom,
-      prenom: newUser.prenom,
-      email: newUser.email,
-      role: newUser.role,
-      estProprietaire: newUser.estProprietaire,
-      actif: newUser.actif,
-      createdAt: newUser.createdAt
-    };
-
+    // Réponse sans mot de passe
     res.status(201).json({
       success: true,
       message: 'Compte créé avec succès',
-      user: userResponse
+      user: {
+        _id: newUser._id,
+        nom: newUser.nom,
+        prenom: newUser.prenom,
+        email: newUser.email,
+        role: newUser.role
+      }
     });
 
   } catch (error) {
-    console.error('❌ Erreur inscription:', error);
+    console.error('❌ Erreur inscription:', error.message);
     res.status(500).json({
       success: false,
-      message: error.message || 'Erreur serveur lors de l\'inscription'
+      message: error.message || 'Erreur serveur'
     });
   }
 });
 
 // ===========================================
-// CONNEXION UTILISATEUR (POST /login)
+// CONNEXION (POST /login)
 // ===========================================
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
-    
+
     if (!email || !password) {
       return res.status(400).json({
         success: false,
         message: 'Email et mot de passe requis'
       });
     }
-    
+
     const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
       return res.status(401).json({
@@ -245,14 +90,14 @@ router.post('/login', async (req, res) => {
         message: 'Email ou mot de passe incorrect'
       });
     }
-    
+
     if (!user.actif) {
       return res.status(403).json({
         success: false,
-        message: 'Compte désactivé. Contactez l\'administrateur.'
+        message: 'Compte désactivé'
       });
     }
-    
+
     const isPasswordValid = await user.comparePassword(password);
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -260,269 +105,61 @@ router.post('/login', async (req, res) => {
         message: 'Email ou mot de passe incorrect'
       });
     }
-    
+
     const token = jwt.sign(
-      { 
+      {
         userId: user._id,
         email: user.email,
         role: user.role,
         espaceId: user.espaceId
       },
-      process.env.JWT_SECRET || 'dev_secret_temporaire',
+      process.env.JWT_SECRET || 'dev_secret',
       { expiresIn: '7d' }
     );
-    
-    const userResponse = user.toPublicJSON();
-    
+
     res.json({
       success: true,
       message: 'Connexion réussie',
       token,
-      user: userResponse
-    });
-    
-  } catch (error) {
-    console.error('❌ Erreur connexion:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Erreur serveur'
-    });
-  }
-});
-
-// ===========================================
-// METTRE À JOUR UN UTILISATEUR (PUT)
-// ===========================================
-router.put('/:id', checkPermission('UPDATE_USER'), async (req, res) => {
-  try {
-    const updates = { ...req.body };
-    delete updates.password;
-    delete updates._id;
-    delete updates.__v;
-
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      updates,
-      { new: true, runValidators: true }
-    ).select('-password');
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Utilisateur non trouvé'
-      });
-    }
-
-    if (req.user) {
-      await AuditLog.create({
-        espaceId: req.user.espaceId,
-        utilisateurId: req.user._id,
-        action: 'UPDATE_USER',
-        cible: {
-          type: 'User',
-          id: user._id,
-          nom: `${user.prenom} ${user.nom}`
-        },
-        details: updates,
-        ip: req.ip,
-        userAgent: req.headers['user-agent']
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Utilisateur mis à jour',
-      user
-    });
-  } catch (error) {
-    console.error('❌ Erreur mise à jour:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Erreur serveur'
-    });
-  }
-});
-
-// ===========================================
-// SUPPRIMER (DÉSACTIVER) UN UTILISATEUR (DELETE)
-// ===========================================
-router.delete('/:id', checkPermission('DELETE_USER'), async (req, res) => {
-  try {
-    const user = await User.findByIdAndUpdate(
-      req.params.id,
-      { actif: false },
-      { new: true }
-    );
-
-    if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Utilisateur non trouvé'
-      });
-    }
-
-    if (req.user) {
-      await AuditLog.create({
-        espaceId: req.user.espaceId,
-        utilisateurId: req.user._id,
-        action: 'DELETE_USER',
-        cible: {
-          type: 'User',
-          id: user._id,
-          nom: `${user.prenom} ${user.nom}`
-        },
-        details: { actif: false },
-        ip: req.ip,
-        userAgent: req.headers['user-agent']
-      });
-    }
-
-    res.json({
-      success: true,
-      message: 'Utilisateur désactivé'
-    });
-  } catch (error) {
-    console.error('❌ Erreur suppression:', error);
-    res.status(500).json({
-      success: false,
-      message: error.message || 'Erreur serveur'
-    });
-  }
-});
-
-// ===========================================
-// DEMANDE DE RÉINITIALISATION (POST /forgot-password)
-// ===========================================
-router.post('/forgot-password', async (req, res) => {
-  try {
-    const { email } = req.body;
-
-    if (!email) {
-      return res.status(400).json({
-        success: false,
-        message: 'Email requis'
-      });
-    }
-
-    const user = await User.findOne({ email });
-    if (!user) {
-      return res.json({
-        success: true,
-        message: 'Si cet email existe, un lien de réinitialisation a été envoyé'
-      });
-    }
-
-    const token = crypto.randomBytes(32).toString('hex');
-    
-    await PasswordReset.create({
-      email,
-      token,
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000)
-    });
-
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'smtp.gmail.com',
-      port: process.env.SMTP_PORT || 587,
-      secure: false,
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
+      user: {
+        _id: user._id,
+        nom: user.nom,
+        prenom: user.prenom,
+        email: user.email,
+        role: user.role,
+        espaceId: user.espaceId
       }
     });
 
-    const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${token}`;
-
-    await transporter.sendMail({
-      from: '"Laboges" <noreply@laboges.com>',
-      to: email,
-      subject: 'Réinitialisation de votre mot de passe',
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 500px; margin: 0 auto;">
-          <h2 style="color: #2563eb;">Laboges</h2>
-          <p>Vous avez demandé la réinitialisation de votre mot de passe.</p>
-          <p>Cliquez sur le lien ci-dessous pour créer un nouveau mot de passe :</p>
-          <a href="${resetLink}" style="display: inline-block; background: #2563eb; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; margin: 20px 0;">
-            Réinitialiser mon mot de passe
-          </a>
-          <p style="color: #666; font-size: 14px;">Ce lien est valable 15 minutes.</p>
-          <p style="color: #666; font-size: 14px;">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
-        </div>
-      `
-    });
-
-    res.json({
-      success: true,
-      message: 'Un email de réinitialisation a été envoyé'
-    });
-
   } catch (error) {
-    console.error('❌ Erreur forgot-password:', error);
+    console.error('❌ Erreur connexion:', error.message);
     res.status(500).json({
       success: false,
-      message: 'Erreur lors de l\'envoi de l\'email'
+      message: error.message || 'Erreur serveur'
     });
   }
 });
 
 // ===========================================
-// RÉINITIALISATION (POST /reset-password)
+// RÉCUPÉRER LES INFOS UTILISATEUR (GET /me)
 // ===========================================
-router.post('/reset-password', async (req, res) => {
+router.get('/me', async (req, res) => {
   try {
-    const { token, newPassword } = req.body;
-
-    if (!token || !newPassword) {
-      return res.status(400).json({
-        success: false,
-        message: 'Token et nouveau mot de passe requis'
-      });
+    const token = req.headers.authorization?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(401).json({ success: false, message: 'Non authentifié' });
     }
 
-    if (newPassword.length < 6) {
-      return res.status(400).json({
-        success: false,
-        message: 'Le mot de passe doit contenir au moins 6 caractères'
-      });
-    }
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
+    const user = await User.findById(decoded.userId).select('-password');
 
-    const resetRequest = await PasswordReset.findOne({
-      token,
-      utilisé: false,
-      expiresAt: { $gt: new Date() }
-    });
-
-    if (!resetRequest) {
-      return res.status(400).json({
-        success: false,
-        message: 'Lien invalide ou expiré'
-      });
-    }
-
-    const user = await User.findOne({ email: resetRequest.email });
     if (!user) {
-      return res.status(404).json({
-        success: false,
-        message: 'Utilisateur non trouvé'
-      });
+      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
     }
 
-    user.password = newPassword;
-    await user.save();
-
-    resetRequest.utilisé = true;
-    await resetRequest.save();
-
-    res.json({
-      success: true,
-      message: 'Mot de passe réinitialisé avec succès'
-    });
-
+    res.json({ success: true, user });
   } catch (error) {
-    console.error('❌ Erreur reset-password:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Erreur lors de la réinitialisation'
-    });
+    res.status(401).json({ success: false, message: 'Token invalide' });
   }
 });
 
