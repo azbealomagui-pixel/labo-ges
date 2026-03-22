@@ -64,13 +64,23 @@ const rapportRoutes = require('./src/routes/rapportRoutes');
 const messageRoutes = require('./src/routes/messageRoutes');
 const abonnementRoutes = require('./src/routes/abonnementRoutes');
 const superAdminRoutes = require('./src/routes/superAdminRoutes');
-const checkExpiredSubscriptions = require('./cron/checkExpiredSubscriptions');
 
-// ===== 8. APPLIQUER LE RATE LIMITING STRICT =====
+// ===== 8. IMPORTER LE CRON (avec gestion d'erreur) =====
+let checkExpiredSubscriptions;
+try {
+  checkExpiredSubscriptions = require('./cron/checkExpiredSubscriptions');
+  console.log('✅ Module cron chargé avec succès');
+} catch (err) {
+  console.warn('⚠️ Module cron non trouvé, désactivation de la vérification automatique');
+  console.warn('   Erreur:', err.message);
+  checkExpiredSubscriptions = null;
+}
+
+// ===== 9. APPLIQUER LE RATE LIMITING STRICT =====
 app.use('/api/users/login', authLimiter);
 app.use('/api/users/register', authLimiter);
 
-// ===== 9. UTILISER LES ROUTES =====
+// ===== 10. UTILISER LES ROUTES =====
 app.use('/api/users', userRoutes);
 app.use('/api/laboratoires', laboratoireRoutes);
 app.use('/api/patients', patientRoutes);
@@ -85,7 +95,7 @@ app.use('/api/abonnements', abonnementRoutes);
 app.use('/api/super-admin', superAdminRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ===== 10. ROUTES DE TEST =====
+// ===== 11. ROUTES DE TEST =====
 // Route racine
 app.get('/', (req, res) => {
   res.json({
@@ -125,10 +135,10 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// ===== 11. CRÉER LE SERVEUR HTTP =====
+// ===== 12. CRÉER LE SERVEUR HTTP =====
 const server = http.createServer(app);
 
-// ===== 12. CONFIGURER SOCKET.IO =====
+// ===== 13. CONFIGURER SOCKET.IO =====
 const io = socketIo(server, {
   cors: {
     origin: process.env.FRONTEND_URL || 'http://localhost:5173',
@@ -152,7 +162,7 @@ io.on('connection', (socket) => {
   });
 });
 
-// ===== 13. CONNEXION À MONGODB ATLAS =====
+// ===== 14. CONNEXION À MONGODB ATLAS =====
 console.log('🔄 Tentative de connexion à MongoDB Atlas...');
 
 mongoose.connect(process.env.MONGODB_URI)
@@ -160,24 +170,38 @@ mongoose.connect(process.env.MONGODB_URI)
     console.log('✅ CONNEXION MONGODB ATLAS RÉUSSIE !');
     console.log(`📊 Base de données: ${mongoose.connection.name || 'laboratoire'}`);
 
-    // ===== DÉMARRAGE DU CRON JOB =====
-    // Exécuter une première fois au démarrage
-    setTimeout(async () => {
-      console.log('🔄 Exécution initiale du cron job...');
-      const result = await checkExpiredSubscriptions();
-      if (result) {
-        console.log(`📊 Cron initial: ${result.expired || 0} expirés, ${result.expiringSoon || 0} expirent bientôt`);
-      }
-    }, 5000); // Attendre 5 secondes après le démarrage
+    // ===== DÉMARRAGE DU CRON JOB (uniquement si disponible) =====
+    if (checkExpiredSubscriptions) {
+      // Exécution initiale après 5 secondes
+      setTimeout(async () => {
+        console.log('🔄 Exécution initiale du cron job...');
+        try {
+          const result = await checkExpiredSubscriptions(io);
+          if (result && !result.error) {
+            console.log(`📊 Cron initial: ${result.expired || 0} expirés, ${result.expiringSoon || 0} expirent bientôt`);
+          } else if (result?.error) {
+            console.warn(`⚠️ Cron initial: ${result.error}`);
+          }
+        } catch (err) {
+          console.warn('⚠️ Erreur lors de l\'exécution initiale du cron:', err.message);
+        }
+      }, 5000);
 
-    // Puis exécuter toutes les 24 heures
-    setInterval(async () => {
-      console.log('🔄 Exécution périodique du cron job...');
-      const result = await checkExpiredSubscriptions();
-      if (result) {
-        console.log(`📊 Cron: ${result.expired || 0} expirés, ${result.expiringSoon || 0} expirent bientôt`);
-      }
-    }, 24 * 60 * 60 * 1000); // 24 heures
+      // Exécution périodique toutes les 24 heures
+      setInterval(async () => {
+        console.log('🔄 Exécution périodique du cron job...');
+        try {
+          const result = await checkExpiredSubscriptions(io);
+          if (result && !result.error) {
+            console.log(`📊 Cron: ${result.expired || 0} expirés, ${result.expiringSoon || 0} expirent bientôt`);
+          }
+        } catch (err) {
+          console.warn('⚠️ Erreur lors de l\'exécution du cron:', err.message);
+        }
+      }, 24 * 60 * 60 * 1000); // 24 heures
+    } else {
+      console.log('ℹ️ Cron job désactivé (module non trouvé)');
+    }
 
     // ===== DÉMARRAGE DU SERVEUR =====
     server.listen(PORT, () => {
@@ -199,20 +223,18 @@ mongoose.connect(process.env.MONGODB_URI)
     process.exit(1);
   });
 
-// ===== 14. GESTION DES ERREURS NON CAPTURÉES =====
+// ===== 15. GESTION DES ERREURS NON CAPTURÉES =====
 process.on('uncaughtException', (error) => {
   console.error('🔥 Erreur non capturée:', error);
-  // Ne pas quitter immédiatement, laisser le temps de logger
   setTimeout(() => process.exit(1), 1000);
 });
 
 process.on('unhandledRejection', (error) => {
   console.error('🔥 Promise non gérée:', error);
-  // Ne pas quitter immédiatement, laisser le temps de logger
   setTimeout(() => process.exit(1), 1000);
 });
 
-// ===== 15. SIGNAL DE FERMETURE GRACIEUSE =====
+// ===== 16. SIGNAL DE FERMETURE GRACIEUSE =====
 process.on('SIGTERM', () => {
   console.log('🛑 Réception de SIGTERM, arrêt gracieux...');
   server.close(() => {

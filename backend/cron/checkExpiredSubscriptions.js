@@ -1,12 +1,34 @@
 // ===========================================
 // CRON: checkExpiredSubscriptions.js
 // RÔLE: Vérifier quotidiennement les abonnements expirés
+// VERSION: Corrigée - chemins vers src/models
 // ===========================================
 
-const Abonnement = require('../models/Abonnement');
-const Espace = require('../models/Espace');
+// Correction des chemins d'import (depuis /cron vers /src/models)
+const Abonnement = require('../src/models/Abonnement');
+const User = require('../src/models/User');
 
-const checkExpiredSubscriptions = async () => {
+// Envoyer une notification Socket.IO à tous les membres de l'espace
+const sendNotificationToEspace = async (io, espaceId, message, type) => {
+  if (!io) return;
+  
+  try {
+    const users = await User.find({ espaceId, actif: true });
+    
+    users.forEach(user => {
+      io.to(user._id.toString()).emit('abonnement-expire', {
+        message,
+        type,
+        date: new Date()
+      });
+    });
+  } catch (error) {
+    console.error('❌ Erreur envoi notification:', error);
+  }
+};
+
+const checkExpiredSubscriptions = async (io = null) => {
+  const startTime = Date.now();
   console.log('🔄 Vérification des abonnements...', new Date().toISOString());
 
   try {
@@ -22,42 +44,64 @@ const checkExpiredSubscriptions = async () => {
 
     if (expiredResult.modifiedCount > 0) {
       console.log(`📅 ${expiredResult.modifiedCount} abonnement(s) marqué(s) comme expiré`);
+      
+      if (io) {
+        const expiredAbonnements = await Abonnement.find({ 
+          dateFin: { $lt: maintenant }, 
+          statut: 'expire' 
+        }).limit(expiredResult.modifiedCount);
+        
+        for (const abonnement of expiredAbonnements) {
+          await sendNotificationToEspace(
+            io,
+            abonnement.espaceId,
+            '⚠️ Votre abonnement a expiré. Veuillez renouveler pour continuer à utiliser LaboGes.',
+            'expiration'
+          );
+        }
+      }
     }
 
     // ===== 2. TROUVER LES ABONNEMENTS QUI EXPIRE BIENTÔT =====
     const expiringSoon = await Abonnement.find({
       dateFin: { $lte: dans7Jours, $gte: maintenant },
       statut: 'actif'
-    }).populate('espaceId', 'nom email');
+    });
 
     for (const abonnement of expiringSoon) {
-      const joursRestants = abonnement.joursRestants();
+      const joursRestants = Math.ceil((abonnement.dateFin - maintenant) / (1000 * 60 * 60 * 24));
       
-      // Vérifier si la notification a déjà été envoyée
-      const notificationDejaEnvoyee = abonnement.notifications.some(
+      const notificationDejaEnvoyee = abonnement.notifications?.some(
         n => n.type === `rappel_j-${joursRestants}`
       );
 
-      if (!notificationDejaEnvoyee) {
-        // Ajouter la notification
+      if (!notificationDejaEnvoyee && joursRestants <= 7) {
+        abonnement.notifications = abonnement.notifications || [];
         abonnement.notifications.push({
           type: joursRestants === 7 ? 'rappel_j-7' : joursRestants === 1 ? 'rappel_j-1' : 'expiration',
           dateEnvoi: new Date()
         });
         await abonnement.save();
 
-        // Log pour l'envoi d'email (à implémenter)
-        console.log(`📧 Notification à envoyer pour ${abonnement.espaceId?.nom || abonnement.espaceId} : ${joursRestants} jours restants`);
+        if (io) {
+          const message = joursRestants === 1 
+            ? `⏰ Votre abonnement expire demain ! Renouvelez dès maintenant.`
+            : `⏰ Votre abonnement expire dans ${joursRestants} jours. Pensez à renouveler.`;
+          
+          await sendNotificationToEspace(io, abonnement.espaceId, message, 'rappel');
+        }
+
+        console.log(`📧 Notification pour espace ${abonnement.espaceId} : ${joursRestants} jours restants`);
       }
     }
 
-    if (expiringSoon.length > 0) {
-      console.log(`⏰ ${expiringSoon.length} abonnement(s) expire(nt) bientôt`);
-    }
+    const duration = Date.now() - startTime;
+    console.log(`✅ Cron terminé en ${duration}ms - ${expiredResult.modifiedCount} expirés, ${expiringSoon.length} expirent bientôt`);
 
     return {
       expired: expiredResult.modifiedCount,
-      expiringSoon: expiringSoon.length
+      expiringSoon: expiringSoon.length,
+      duration
     };
 
   } catch (error) {
