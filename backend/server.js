@@ -1,7 +1,7 @@
-//===========================================
+// ===========================================
 // FICHIER: backend/server.js
 // RÔLE: Point d'entrée principal du serveur
-// VERSION: Finale avec Socket.IO intégré
+// VERSION: Finale avec Socket.IO et cron job
 // ===========================================
 
 // ===== 1. IMPORTER LES MODULES =====
@@ -63,6 +63,8 @@ const espaceRoutes = require('./src/routes/espaceRoutes');
 const rapportRoutes = require('./src/routes/rapportRoutes');
 const messageRoutes = require('./src/routes/messageRoutes');
 const abonnementRoutes = require('./src/routes/abonnementRoutes');
+const superAdminRoutes = require('./src/routes/superAdminRoutes');
+const checkExpiredSubscriptions = require('./cron/checkExpiredSubscriptions');
 
 // ===== 8. APPLIQUER LE RATE LIMITING STRICT =====
 app.use('/api/users/login', authLimiter);
@@ -80,6 +82,7 @@ app.use('/api/espaces', espaceRoutes);
 app.use('/api/rapports', rapportRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/abonnements', abonnementRoutes);
+app.use('/api/super-admin', superAdminRoutes);
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ===== 10. ROUTES DE TEST =====
@@ -106,7 +109,8 @@ app.get('/api', (req, res) => {
       espaces: '/api/espaces',
       rapports: '/api/rapports',
       messages: '/api/messages',
-      abonnements: '/api/abonnements'
+      abonnements: '/api/abonnements',
+      superAdmin: '/api/super-admin'
     },
     timestamp: new Date().toLocaleString()
   });
@@ -154,8 +158,28 @@ console.log('🔄 Tentative de connexion à MongoDB Atlas...');
 mongoose.connect(process.env.MONGODB_URI)
   .then(() => {
     console.log('✅ CONNEXION MONGODB ATLAS RÉUSSIE !');
-    console.log(`📊 Base de données: laboratoire`);
+    console.log(`📊 Base de données: ${mongoose.connection.name || 'laboratoire'}`);
 
+    // ===== DÉMARRAGE DU CRON JOB =====
+    // Exécuter une première fois au démarrage
+    setTimeout(async () => {
+      console.log('🔄 Exécution initiale du cron job...');
+      const result = await checkExpiredSubscriptions();
+      if (result) {
+        console.log(`📊 Cron initial: ${result.expired || 0} expirés, ${result.expiringSoon || 0} expirent bientôt`);
+      }
+    }, 5000); // Attendre 5 secondes après le démarrage
+
+    // Puis exécuter toutes les 24 heures
+    setInterval(async () => {
+      console.log('🔄 Exécution périodique du cron job...');
+      const result = await checkExpiredSubscriptions();
+      if (result) {
+        console.log(`📊 Cron: ${result.expired || 0} expirés, ${result.expiringSoon || 0} expirent bientôt`);
+      }
+    }, 24 * 60 * 60 * 1000); // 24 heures
+
+    // ===== DÉMARRAGE DU SERVEUR =====
     server.listen(PORT, () => {
       console.log('═══════════════════════════════════════════');
       console.log(`🚀 SERVEUR DÉMARRÉ AVEC SUCCÈS !`);
@@ -166,8 +190,8 @@ mongoose.connect(process.env.MONGODB_URI)
     });
   })
   .catch((error) => {
-    console.log('❌ ERREUR DE CONNEXION MONGODB ATLAS');
-    console.log('📝 Détail:', error.message);
+    console.error('❌ ERREUR DE CONNEXION MONGODB ATLAS');
+    console.error('📝 Détail:', error.message);
     console.log('💡 Vérifiez que:');
     console.log('   1. Le mot de passe dans .env est correct');
     console.log('   2. Votre IP est autorisée dans MongoDB Atlas');
@@ -178,10 +202,35 @@ mongoose.connect(process.env.MONGODB_URI)
 // ===== 14. GESTION DES ERREURS NON CAPTURÉES =====
 process.on('uncaughtException', (error) => {
   console.error('🔥 Erreur non capturée:', error);
-  process.exit(1);
+  // Ne pas quitter immédiatement, laisser le temps de logger
+  setTimeout(() => process.exit(1), 1000);
 });
 
 process.on('unhandledRejection', (error) => {
   console.error('🔥 Promise non gérée:', error);
-  process.exit(1);
+  // Ne pas quitter immédiatement, laisser le temps de logger
+  setTimeout(() => process.exit(1), 1000);
+});
+
+// ===== 15. SIGNAL DE FERMETURE GRACIEUSE =====
+process.on('SIGTERM', () => {
+  console.log('🛑 Réception de SIGTERM, arrêt gracieux...');
+  server.close(() => {
+    console.log('✅ Serveur arrêté');
+    mongoose.connection.close(false, () => {
+      console.log('✅ Connexion MongoDB fermée');
+      process.exit(0);
+    });
+  });
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 Réception de SIGINT, arrêt gracieux...');
+  server.close(() => {
+    console.log('✅ Serveur arrêté');
+    mongoose.connection.close(false, () => {
+      console.log('✅ Connexion MongoDB fermée');
+      process.exit(0);
+    });
+  });
 });

@@ -29,6 +29,7 @@ import Parametres from './pages/Parametres';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import FichesAnalyses from './pages/FichesAnalyses';
+import SuperAdminDashboard from './pages/SuperAdmin/Dashboard';
 
 
 // Providers
@@ -201,6 +202,13 @@ function App() {
           <Route path="/fiches-analyses" element={
             <ProtectedRoute>
               <FichesAnalyses />
+            </ProtectedRoute>
+          } />
+
+          // Ajouter dans les routes protégées
+          <Route path="/super-admin" element={
+            <ProtectedRoute>
+              <SuperAdminDashboard />
             </ProtectedRoute>
           } />
 

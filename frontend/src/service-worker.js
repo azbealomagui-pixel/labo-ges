@@ -6,7 +6,7 @@
 /* eslint-env serviceworker */
 /* global clients */
 
-const CACHE_NAME = 'labogest-v1';
+const CACHE_NAME = 'laboges-v1';
 
 // Fichiers à mettre en cache immédiatement
 const urlsToCache = [

@@ -1,5 +1,8 @@
-// ===================
-// ===================
+// ===========================================
+// MODÈLE: Espace
+// RÔLE: Espace de travail (laboratoire, clinique, etc.)
+// VERSION: Corrigée - abonnement déplacé dans modèle séparé
+// ===========================================
 
 const mongoose = require('mongoose');
 
@@ -7,7 +10,7 @@ const espaceSchema = new mongoose.Schema({
   nom: {
     type: String,
     required: [true, 'Le nom de l\'espace est requis'],
-    unique: true,  
+    unique: true,
     trim: true,
     minlength: [3, 'Le nom doit contenir au moins 3 caractères'],
     maxlength: [100, 'Le nom ne peut pas dépasser 100 caractères']
@@ -33,7 +36,7 @@ const espaceSchema = new mongoose.Schema({
   numeroLicence: {
     type: String,
     required: [true, 'Le numéro de licence est requis'],
-    unique: true,        // ← DÉJÀ UN INDEX
+    unique: true,
     trim: true
   },
   numeroFiscal: {
@@ -51,30 +54,11 @@ const espaceSchema = new mongoose.Schema({
     enum: ['fr', 'en', 'es'],
     default: 'fr'
   },
-  abonnement: {
-    type: {
-      type: String,
-      enum: ['gratuit', 'essai', 'mensuel', 'annuel'],
-      default: 'gratuit'
-    },
-    dateDebut: {
-      type: Date,
-      default: Date.now
-    },
-    dateFin: Date,
-    statut: {
-      type: String,
-      enum: ['actif', 'expire', 'suspendu'],
-      default: 'actif'
-    }
-  },
-
-  // ===== NOUVEAU CHAMP POUR LE LOGO =====
+  // ===== CHAMP LOGO =====
   logo: {
-    type: String,  // URL ou base64 du logo
+    type: String,
     default: null
   },
-
   actif: {
     type: Boolean,
     default: true
@@ -88,10 +72,11 @@ const espaceSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Garder seulement l'index sur email (pas unique)
-espaceSchema.index({ email: 1 });          
+// Index pour optimisations
+espaceSchema.index({ email: 1 });
+espaceSchema.index({ numeroLicence: 1 });
 
-// ===== VIRTUELS =====
+// Virtual pour compter les employés
 espaceSchema.virtual('employesCount', {
   ref: 'User',
   localField: '_id',

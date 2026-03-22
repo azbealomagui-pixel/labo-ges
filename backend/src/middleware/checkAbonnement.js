@@ -1,14 +1,15 @@
 // ===========================================
 // MIDDLEWARE: checkAbonnement.js
 // RÔLE: Vérifier que l'espace a un abonnement actif
+// VERSION: Corrigée - utilise modèle Abonnement
 // ===========================================
 
 const Abonnement = require('../models/Abonnement');
 
 const checkAbonnement = async (req, res, next) => {
   try {
-    // Récupérer l'espaceId de l'utilisateur connecté
-    const espaceId = req.user?.espaceId || req.body.espaceId || req.params.espaceId;
+    // Récupérer l'espaceId depuis l'utilisateur connecté
+    const espaceId = req.user?.espaceId;
 
     if (!espaceId) {
       return res.status(400).json({
@@ -17,19 +18,26 @@ const checkAbonnement = async (req, res, next) => {
       });
     }
 
+    // Chercher l'abonnement dans le modèle Abonnement
     const abonnement = await Abonnement.findOne({ espaceId });
 
     if (!abonnement) {
       return res.status(403).json({
         success: false,
-        message: 'Aucun abonnement trouvé pour cet espace'
+        message: 'Aucun abonnement trouvé pour cet espace. Veuillez contacter l\'administrateur.'
       });
     }
 
-    if (abonnement.statut !== 'actif') {
+    // Vérifier si l'abonnement est actif
+    if (!abonnement.estActif()) {
       return res.status(403).json({
         success: false,
-        message: 'Abonnement non actif. Veuillez renouveler.'
+        message: 'Abonnement expiré. Veuillez renouveler pour continuer à utiliser LaboGes.',
+        abonnement: {
+          type: abonnement.type,
+          dateFin: abonnement.dateFin,
+          statut: abonnement.statut
+        }
       });
     }
 

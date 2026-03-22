@@ -1,59 +1,42 @@
 // ===========================================
 // ROUTES: abonnementRoutes.js
 // RÔLE: Gestion des abonnements
+// VERSION: Corrigée avec authentification
 // ===========================================
 
 const express = require('express');
 const Abonnement = require('../models/Abonnement');
 const Espace = require('../models/Espace');
+const { authenticate } = require('../middleware/auth');
+const { checkPermission } = require('../middleware/checkPermission');
 const router = express.Router();
 
-// ===== CRÉER UN ABONNEMENT (à la création d'espace) =====
-router.post('/espace/:espaceId', async (req, res) => {
+// ===== OBTENIR L'ABONNEMENT DE L'ESPACE DE L'UTILISATEUR =====
+router.get('/mon-abonnement', authenticate, async (req, res) => {
   try {
-    const { espaceId } = req.params;
-    const { type } = req.body;
-
-    // Vérifier que l'espace existe
-    const espace = await Espace.findById(espaceId);
-    if (!espace) {
-      return res.status(404).json({
+    const espaceId = req.user.espaceId;
+    
+    if (!espaceId) {
+      return res.status(400).json({
         success: false,
-        message: 'Espace non trouvé'
+        message: 'Aucun espace associé à cet utilisateur'
       });
     }
 
-    // Calculer la date de fin
-    const dateDebut = new Date();
-    let dateFin = new Date();
-    
-    if (type === 'essai') {
-      dateFin.setDate(dateFin.getDate() + 30); // 30 jours d'essai
-    } else if (type === 'mensuel') {
-      dateFin.setMonth(dateFin.getMonth() + 1);
-    } else if (type === 'annuel') {
-      dateFin.setFullYear(dateFin.getFullYear() + 1);
+    let abonnement = await Abonnement.findOne({ espaceId });
+
+    // Si pas d'abonnement, en créer un d'essai
+    if (!abonnement) {
+      abonnement = await Abonnement.creerEssai(espaceId);
     }
 
-    // Créer l'abonnement
-    const abonnement = new Abonnement({
-      espaceId,
-      type: type || 'essai',
-      dateDebut,
-      dateFin,
-      statut: 'actif'
-    });
-
-    await abonnement.save();
-
-    res.status(201).json({
+    res.json({
       success: true,
-      message: 'Abonnement créé',
       abonnement
     });
 
   } catch (error) {
-    console.error('❌ Erreur création abonnement:', error);
+    console.error('❌ Erreur récupération abonnement:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -61,8 +44,8 @@ router.post('/espace/:espaceId', async (req, res) => {
   }
 });
 
-// ===== OBTENIR L'ABONNEMENT D'UN ESPACE =====
-router.get('/espace/:espaceId', async (req, res) => {
+// ===== OBTENIR L'ABONNEMENT D'UN ESPACE (pour super admin) =====
+router.get('/espace/:espaceId', authenticate, checkPermission('VIEW_SETTINGS'), async (req, res) => {
   try {
     const abonnement = await Abonnement.findOne({ espaceId: req.params.espaceId });
 
@@ -87,37 +70,31 @@ router.get('/espace/:espaceId', async (req, res) => {
   }
 });
 
-// ===== RENOUVELER UN ABONNEMENT =====
-router.post('/:id/renouveler', async (req, res) => {
+// ===== RENOUVELER L'ABONNEMENT =====
+router.post('/renouveler', authenticate, async (req, res) => {
   try {
-    const { id } = req.params;
     const { type } = req.body;
+    const espaceId = req.user.espaceId;
 
-    const abonnement = await Abonnement.findById(id);
-    if (!abonnement) {
-      return res.status(404).json({
+    if (!type || !['mensuel', 'annuel'].includes(type)) {
+      return res.status(400).json({
         success: false,
-        message: 'Abonnement non trouvé'
+        message: 'Type d\'abonnement invalide (mensuel ou annuel)'
       });
     }
 
-    // Calculer nouvelle date de fin
-    const dateFin = new Date();
-    if (type === 'mensuel') {
-      dateFin.setMonth(dateFin.getMonth() + 1);
-    } else if (type === 'annuel') {
-      dateFin.setFullYear(dateFin.getFullYear() + 1);
+    let abonnement = await Abonnement.findOne({ espaceId });
+
+    if (!abonnement) {
+      abonnement = await Abonnement.creerEssai(espaceId);
     }
 
-    abonnement.type = type;
-    abonnement.dateFin = dateFin;
-    abonnement.statut = 'actif';
-    await abonnement.save();
+    const abonnementRenouvele = await Abonnement.renouveler(abonnement._id, type);
 
     res.json({
       success: true,
-      message: 'Abonnement renouvelé',
-      abonnement
+      message: 'Abonnement renouvelé avec succès',
+      abonnement: abonnementRenouvele
     });
 
   } catch (error) {
@@ -129,13 +106,13 @@ router.post('/:id/renouveler', async (req, res) => {
   }
 });
 
-// ===== SIMULER UN PAIEMENT =====
-router.post('/:id/paiement', async (req, res) => {
+// ===== ENREGISTRER UN PAIEMENT =====
+router.post('/paiement', authenticate, async (req, res) => {
   try {
-    const { id } = req.params;
     const { montant, methode, transactionId } = req.body;
+    const espaceId = req.user.espaceId;
 
-    const abonnement = await Abonnement.findById(id);
+    const abonnement = await Abonnement.findOne({ espaceId });
     if (!abonnement) {
       return res.status(404).json({
         success: false,
@@ -149,13 +126,6 @@ router.post('/:id/paiement', async (req, res) => {
       transactionId: transactionId || `TXN-${Date.now()}`,
       statut: 'reussi'
     });
-
-    abonnement.dateProchainPaiement = new Date();
-    if (abonnement.type === 'mensuel') {
-      abonnement.dateProchainPaiement.setMonth(abonnement.dateProchainPaiement.getMonth() + 1);
-    } else if (abonnement.type === 'annuel') {
-      abonnement.dateProchainPaiement.setFullYear(abonnement.dateProchainPaiement.getFullYear() + 1);
-    }
 
     await abonnement.save();
 
@@ -174,16 +144,21 @@ router.post('/:id/paiement', async (req, res) => {
   }
 });
 
-// ===== SUSPENDRE UN ABONNEMENT =====
-router.patch('/:id/suspendre', async (req, res) => {
+// ===== SUSPENDRE UN ABONNEMENT (super admin) =====
+router.patch('/:id/suspendre', authenticate, checkPermission('UPDATE_SETTINGS'), async (req, res) => {
   try {
-    const { id } = req.params;
-
     const abonnement = await Abonnement.findByIdAndUpdate(
-      id,
+      req.params.id,
       { statut: 'suspendu' },
       { new: true }
     );
+
+    if (!abonnement) {
+      return res.status(404).json({
+        success: false,
+        message: 'Abonnement non trouvé'
+      });
+    }
 
     res.json({
       success: true,
@@ -201,7 +176,6 @@ router.patch('/:id/suspendre', async (req, res) => {
 });
 
 // ===== TÂCHE CRON POUR VÉRIFIER LES EXPIRATIONS =====
-// À exécuter quotidiennement
 router.post('/cron/verifier', async (req, res) => {
   try {
     const maintenant = new Date();
@@ -215,14 +189,14 @@ router.post('/cron/verifier', async (req, res) => {
     });
 
     // Marquer les expirés
-    await Abonnement.updateMany(
+    const expireResult = await Abonnement.updateMany(
       { dateFin: { $lt: maintenant }, statut: 'actif' },
       { statut: 'expire' }
     );
 
     res.json({
       success: true,
-      message: `${expireBientot.length} abonnements expirent bientôt`,
+      message: `${expireBientot.length} abonnements expirent bientôt, ${expireResult.modifiedCount} expirés`,
       expireBientot
     });
 

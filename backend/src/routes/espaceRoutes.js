@@ -1,11 +1,13 @@
 // ===========================================
 // ROUTES: espaceRoutes.js
 // RÔLE: Gestion des espaces (CRUD complet)
+// VERSION: Finale avec création auto abonnement
 // ===========================================
 
 const express = require('express');
 const Espace = require('../models/Espace');
 const User = require('../models/User');
+const Abonnement = require('../models/Abonnement'); // ← AJOUT IMPORT
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -45,7 +47,7 @@ const upload = multer({
 });
 
 // ===========================================
-// CRÉER UN ESPACE (POST)
+// CRÉER UN ESPACE (POST) - CORRIGÉ
 // ===========================================
 router.post('/', async (req, res) => {
   try {
@@ -87,22 +89,43 @@ router.post('/', async (req, res) => {
       return res.status(409).json({ success: false, message: 'Cet email est déjà utilisé' });
     }
 
+    // ===== CRÉER L'ESPACE (SANS CHAMP ABONNEMENT) =====
     const nouvelEspace = new Espace({
-      nom, adresse, telephone, email, numeroLicence,
+      nom,
+      adresse,
+      telephone,
+      email,
+      numeroLicence,
       numeroFiscal: numeroFiscal || '',
       deviseParDefaut: deviseParDefaut || 'EUR',
       langueParDefaut: langueParDefaut || 'fr',
-      createdBy,
-      abonnement: { type: 'gratuit', dateDebut: new Date(), statut: 'actif' }
+      createdBy
+      // PLUS DE CHAMP ABONNEMENT ICI
     });
 
     await nouvelEspace.save();
-    await User.findByIdAndUpdate(createdBy, { espaceId: nouvelEspace._id, estProprietaire: true });
 
-    res.status(201).json({ success: true, message: 'Espace créé avec succès', espace: nouvelEspace });
+    // ===== METTRE À JOUR L'UTILISATEUR =====
+    await User.findByIdAndUpdate(createdBy, {
+      espaceId: nouvelEspace._id,
+      estProprietaire: true
+    });
+
+    // ===== CRÉER L'ABONNEMENT D'ESSAI =====
+    await Abonnement.creerEssai(nouvelEspace._id);
+
+    res.status(201).json({
+      success: true,
+      message: 'Espace créé avec succès',
+      espace: nouvelEspace
+    });
+
   } catch (error) {
     console.error('❌ Erreur création espace:', error);
-    res.status(500).json({ success: false, message: error.message || 'Erreur serveur' });
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Erreur serveur'
+    });
   }
 });
 
@@ -134,7 +157,6 @@ router.put('/:id', authenticate, checkPermission('UPDATE_SETTINGS'), async (req,
     delete updates._id;
     delete updates.__v;
     delete updates.createdBy;
-    delete updates.abonnement;
     delete updates.logo;
 
     const espace = await Espace.findByIdAndUpdate(req.params.id, updates, { new: true, runValidators: true });
@@ -236,7 +258,6 @@ router.post('/:id/membres', authenticate, checkPermission('CREATE_USER'), async 
     console.log('📝 Création membre pour espace:', espaceId);
     console.log('📝 Données:', { nom, prenom, email, role });
 
-    // Validation
     if (!nom || !prenom || !email || !password) {
       return res.status(400).json({
         success: false,
@@ -245,7 +266,6 @@ router.post('/:id/membres', authenticate, checkPermission('CREATE_USER'), async 
       });
     }
 
-    // Vérifier que l'espace existe
     const espace = await Espace.findById(espaceId);
     if (!espace) {
       return res.status(404).json({
@@ -254,7 +274,6 @@ router.post('/:id/membres', authenticate, checkPermission('CREATE_USER'), async 
       });
     }
 
-    // Vérifier email unique
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({
@@ -263,7 +282,6 @@ router.post('/:id/membres', authenticate, checkPermission('CREATE_USER'), async 
       });
     }
 
-    // Créer le membre
     const nouveauMembre = new User({
       nom,
       prenom,
@@ -317,7 +335,6 @@ router.put('/:espaceId/membres/:userId', authenticate, checkPermission('UPDATE_U
     const { role, poste, actif } = req.body;
     const { espaceId, userId } = req.params;
 
-    // Vérifier que le membre appartient bien à cet espace
     const membre = await User.findOne({ 
       _id: userId, 
       espaceId: espaceId 
@@ -330,7 +347,6 @@ router.put('/:espaceId/membres/:userId', authenticate, checkPermission('UPDATE_U
       });
     }
 
-    // Empêcher la modification du propriétaire
     if (membre.estProprietaire) {
       return res.status(403).json({
         success: false,
@@ -338,7 +354,6 @@ router.put('/:espaceId/membres/:userId', authenticate, checkPermission('UPDATE_U
       });
     }
 
-    // Mise à jour
     if (role) membre.role = role;
     if (poste !== undefined) membre.poste = poste;
     if (actif !== undefined) membre.actif = actif;
@@ -384,7 +399,6 @@ router.delete('/:espaceId/membres/:userId', authenticate, checkPermission('DELET
       });
     }
 
-    // Suppression définitive
     await User.findByIdAndDelete(userId);
 
     res.json({
