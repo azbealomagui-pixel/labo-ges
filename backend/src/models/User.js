@@ -97,6 +97,12 @@ const userSchema = new mongoose.Schema({
 
 // ===== MIDDLEWARE PRE-SAVE : HASH DU MOT DE PASSE (CORRIGÉ) =====
 userSchema.pre('save', function(next) {
+  // Vérifier que next est bien une fonction
+  if (typeof next !== 'function') {
+    console.error('❌ next n\'est pas une fonction dans pre-save');
+    return;
+  }
+
   // Ne hasher que si le mot de passe a été modifié
   if (!this.isModified('password')) {
     return next();
@@ -107,7 +113,7 @@ userSchema.pre('save', function(next) {
     return next();
   }
 
-  // Générer le salt et hasher (version synchrone)
+  // Hashage synchrone pour éviter les problèmes de callback
   try {
     const salt = bcrypt.genSaltSync(10);
     this.password = bcrypt.hashSync(this.password, salt);
