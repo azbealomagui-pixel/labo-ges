@@ -1,7 +1,7 @@
 // ===========================================
 // FICHIER: src/routes/userRoutes.js
 // RÔLE: Routes pour la gestion des utilisateurs
-// VERSION: Finale avec bcrypt.compare et journalisation
+// VERSION: Stable avec bcrypt
 // ===========================================
 
 const express = require('express');
@@ -20,9 +20,6 @@ const router = express.Router();
 // ===========================================
 router.post('/', checkPermission('CREATE_USER'), async (req, res) => {
   try {
-    console.log('=== REQUÊTE REÇUE ===');
-    console.log('Body complet:', req.body);
-    
     const { nom, prenom, email, password, role, laboratoireId } = req.body;
     
     const missingFields = [];
@@ -62,19 +59,21 @@ router.post('/', checkPermission('CREATE_USER'), async (req, res) => {
     const newUser = new User(userData);
     await newUser.save();
     
-    await AuditLog.create({
-      espaceId: req.user?.espaceId || userData.laboratoireId,
-      utilisateurId: req.user?._id || newUser._id,
-      action: 'CREATE_USER',
-      cible: {
-        type: 'User',
-        id: newUser._id,
-        nom: `${newUser.prenom} ${newUser.nom}`
-      },
-      details: { role: newUser.role },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    });
+    if (req.user) {
+      await AuditLog.create({
+        espaceId: req.user?.espaceId || userData.laboratoireId,
+        utilisateurId: req.user?._id || newUser._id,
+        action: 'CREATE_USER',
+        cible: {
+          type: 'User',
+          id: newUser._id,
+          nom: `${newUser.prenom} ${newUser.nom}`
+        },
+        details: { role: newUser.role },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+    }
     
     const userResponse = newUser.toPublicJSON();
     
@@ -86,18 +85,6 @@ router.post('/', checkPermission('CREATE_USER'), async (req, res) => {
     
   } catch (error) {
     console.error('❌ Erreur création utilisateur:', error);
-    
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Erreur de validation',
-        errors: Object.keys(error.errors).map(key => ({
-          field: key,
-          message: error.errors[key].message
-        }))
-      });
-    }
-
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -148,14 +135,6 @@ router.get('/:id', checkPermission('VIEW_USERS'), async (req, res) => {
     });
   } catch (error) {
     console.error('❌ Erreur récupération utilisateur:', error);
-    
-    if (error.name === 'CastError') {
-      return res.status(400).json({
-        success: false,
-        message: 'ID utilisateur invalide'
-      });
-    }
-
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -198,7 +177,7 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    const existingUser = await User.findOne({ email });
+    const existingUser = await User.findOne({ email: email.toLowerCase().trim() });
     if (existingUser) {
       return res.status(409).json({
         success: false,
@@ -212,14 +191,23 @@ router.post('/register', async (req, res) => {
       email: email.toLowerCase().trim(),
       password,
       role: 'manager_labo',
-      estProprietaire: false
+      estProprietaire: false,
+      actif: true
     });
 
     await newUser.save();
-    
     console.log(`✅ Nouvel utilisateur créé: ${email}`);
 
-    const userResponse = newUser.toPublicJSON();
+    const userResponse = {
+      _id: newUser._id,
+      nom: newUser.nom,
+      prenom: newUser.prenom,
+      email: newUser.email,
+      role: newUser.role,
+      estProprietaire: newUser.estProprietaire,
+      actif: newUser.actif,
+      createdAt: newUser.createdAt
+    };
 
     res.status(201).json({
       success: true,
@@ -229,21 +217,9 @@ router.post('/register', async (req, res) => {
 
   } catch (error) {
     console.error('❌ Erreur inscription:', error);
-    
-    if (error.name === 'ValidationError') {
-      return res.status(400).json({
-        success: false,
-        message: 'Erreur de validation',
-        errors: Object.keys(error.errors).map(key => ({
-          field: key,
-          message: error.errors[key].message
-        }))
-      });
-    }
-
     res.status(500).json({
       success: false,
-      message: error.message || 'Erreur serveur'
+      message: error.message || 'Erreur serveur lors de l\'inscription'
     });
   }
 });
@@ -262,7 +238,7 @@ router.post('/login', async (req, res) => {
       });
     }
     
-    const user = await User.findOne({ email });
+    const user = await User.findOne({ email: email.toLowerCase().trim() });
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -278,7 +254,6 @@ router.post('/login', async (req, res) => {
     }
     
     const isPasswordValid = await user.comparePassword(password);
-    
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
@@ -338,19 +313,21 @@ router.put('/:id', checkPermission('UPDATE_USER'), async (req, res) => {
       });
     }
 
-    await AuditLog.create({
-      espaceId: req.user.espaceId,
-      utilisateurId: req.user._id,
-      action: 'UPDATE_USER',
-      cible: {
-        type: 'User',
-        id: user._id,
-        nom: `${user.prenom} ${user.nom}`
-      },
-      details: updates,
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    });
+    if (req.user) {
+      await AuditLog.create({
+        espaceId: req.user.espaceId,
+        utilisateurId: req.user._id,
+        action: 'UPDATE_USER',
+        cible: {
+          type: 'User',
+          id: user._id,
+          nom: `${user.prenom} ${user.nom}`
+        },
+        details: updates,
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+    }
 
     res.json({
       success: true,
@@ -384,19 +361,21 @@ router.delete('/:id', checkPermission('DELETE_USER'), async (req, res) => {
       });
     }
 
-    await AuditLog.create({
-      espaceId: req.user.espaceId,
-      utilisateurId: req.user._id,
-      action: 'DELETE_USER',
-      cible: {
-        type: 'User',
-        id: user._id,
-        nom: `${user.prenom} ${user.nom}`
-      },
-      details: { actif: false },
-      ip: req.ip,
-      userAgent: req.headers['user-agent']
-    });
+    if (req.user) {
+      await AuditLog.create({
+        espaceId: req.user.espaceId,
+        utilisateurId: req.user._id,
+        action: 'DELETE_USER',
+        cible: {
+          type: 'User',
+          id: user._id,
+          nom: `${user.prenom} ${user.nom}`
+        },
+        details: { actif: false },
+        ip: req.ip,
+        userAgent: req.headers['user-agent']
+      });
+    }
 
     res.json({
       success: true,
