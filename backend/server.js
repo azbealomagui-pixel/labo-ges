@@ -27,7 +27,7 @@ const PORT = process.env.PORT || 5000;
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cors());
-
+app.set('trust proxy', 1);
 // ===== 6. CONFIGURATION DU RATE LIMITING =====
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
