@@ -95,20 +95,14 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// ===== MIDDLEWARE PRE-SAVE : HASHAGE AVEC ASYNC/AWAIT =====
+// ===== UN SEUL MIDDLEWARE PRE-SAVE =====
 userSchema.pre('save', async function(next) {
+  // Ne hasher que si le mot de passe est modifié ET pas déjà hashé
+  if (!this.isModified('password') || (this.password && this.password.startsWith('$2b$'))) {
+    return next();
+  }
+
   try {
-    // Ne hasher que si le mot de passe a été modifié
-    if (!this.isModified('password')) {
-      return next();
-    }
-
-    // Vérifier que le mot de passe n'est pas déjà un hash bcrypt
-    if (this.password && this.password.startsWith('$2b$')) {
-      return next();
-    }
-
-    // Hashage avec async/await
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
     console.log('✅ Mot de passe hashé avec succès pour:', this.email);
@@ -121,14 +115,8 @@ userSchema.pre('save', async function(next) {
 
 // ===== MÉTHODE DE COMPARAISON =====
 userSchema.methods.comparePassword = async function(candidatePassword) {
-  try {
-    if (!this.password) return false;
-    const isValid = await bcrypt.compare(candidatePassword, this.password);
-    return isValid;
-  } catch (error) {
-    console.error('❌ Erreur de comparaison:', error);
-    return false;
-  }
+  if (!this.password) return false;
+  return bcrypt.compare(candidatePassword, this.password);
 };
 
 // ===== MÉTHODE POUR DONNÉES PUBLIQUES =====
