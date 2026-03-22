@@ -1,42 +1,44 @@
 // ===========================================
 // FICHIER: src/config/currencies.js
 // RÔLE: Configuration des devises supportées
-// NOTE: Ce fichier centralise toutes les infos de devises
+// NOTE: USD est la devise de référence pour les statistiques
 // ===========================================
 
 const currencies = {
-  // Devises principales avec leurs symboles et codes
-  EUR: {
-    code: 'EUR',
-    symbole: '€',
-    nom: 'Euro',
-    decimales: 2,
-    position: 'after', // symbole après le montant : 100€
-    taux: 1.0 // Base de référence
-  },
+  // Devise de référence (BASE)
   USD: {
     code: 'USD',
     symbole: '$',
     nom: 'Dollar américain',
     decimales: 2,
-    position: 'before', // symbole avant : $100
-    taux: 1.08 // 1 EUR = 1.08 USD (exemple)
+    position: 'before',
+    tauxVersUSD: 1.0  // BASE
   },
-  GNF: { // ✅ AJOUTÉ
+  
+  // Autres devises avec taux de conversion vers USD
+  EUR: {
+    code: 'EUR',
+    symbole: '€',
+    nom: 'Euro',
+    decimales: 2,
+    position: 'after',
+    tauxVersUSD: 1.08  // 1 EUR = 1.08 USD
+  },
+  GNF: {
     code: 'GNF',
     symbole: 'FG',
     nom: 'Franc guinéen',
-    decimales: 0, // Pas de centimes
+    decimales: 0,
     position: 'after',
-    taux: 12000 // 1 EUR ≈ 12000 GNF (taux approximatif)
+    tauxVersUSD: 0.000083  // 1 GNF ≈ 0.000083 USD (soit 12000 GNF = 1 USD)
   },
   XOF: {
     code: 'XOF',
     symbole: 'CFA',
     nom: 'Franc CFA',
-    decimales: 0, // Pas de centimes
+    decimales: 0,
     position: 'after',
-    taux: 655.96 // 1 EUR = 655.96 FCFA
+    tauxVersUSD: 0.0015  // 1 FCFA ≈ 0.0015 USD (soit 655.96 FCFA = 1 USD)
   },
   GBP: {
     code: 'GBP',
@@ -44,46 +46,67 @@ const currencies = {
     nom: 'Livre sterling',
     decimales: 2,
     position: 'before',
-    taux: 0.85 // 1 EUR = 0.85 GBP
+    tauxVersUSD: 1.26
   },
-  MAD: {
-    code: 'MAD',
-    symbole: 'DH',
-    nom: 'Dirham marocain',
+  CAD: {
+    code: 'CAD',
+    symbole: '$',
+    nom: 'Dollar canadien',
     decimales: 2,
-    position: 'after',
-    taux: 10.86 // 1 EUR = 10.86 MAD
-  },
-  DZD: {
-    code: 'DZD',
-    symbole: 'DA',
-    nom: 'Dinar algérien',
-    decimales: 2,
-    position: 'after',
-    taux: 145.23 // 1 EUR = 145.23 DZD
-  },
-  TND: {
-    code: 'TND',
-    symbole: 'DT',
-    nom: 'Dinar tunisien',
-    decimales: 3, // 3 décimales pour le dinar tunisien
-    position: 'after',
-    taux: 3.38 // 1 EUR = 3.38 TND
+    position: 'before',
+    tauxVersUSD: 0.73
   }
 };
 
-// Fonction utilitaire pour formater un montant selon la devise
-// @param {number} montant - Le montant à formater
-// @param {string} codeDevise - Le code de la devise (ex: 'EUR')
-// @returns {string} - Le montant formaté avec symbole
+// Liste des codes pour le frontend
+const currencyCodes = Object.keys(currencies);
+
+// ===== FONCTIONS DE CONVERSION =====
+
+/**
+ * Convertir un montant d'une devise source vers USD
+ * @param {number} montant - Montant à convertir
+ * @param {string} deviseSource - Code de la devise source (EUR, GNF, etc.)
+ * @returns {number} - Montant converti en USD
+ */
+const convertirVersUSD = (montant, deviseSource) => {
+  if (!montant || montant === 0) return 0;
+  const devise = currencies[deviseSource];
+  if (!devise) {
+    console.warn(`⚠️ Devise inconnue: ${deviseSource}, conversion par défaut 1:1`);
+    return montant;
+  }
+  return montant * devise.tauxVersUSD;
+};
+
+/**
+ * Convertir un montant de USD vers une devise cible
+ * @param {number} montantUSD - Montant en USD
+ * @param {string} deviseCible - Code de la devise cible
+ * @returns {number} - Montant converti dans la devise cible
+ */
+const convertirDepuisUSD = (montantUSD, deviseCible) => {
+  if (!montantUSD || montantUSD === 0) return 0;
+  const devise = currencies[deviseCible];
+  if (!devise) {
+    console.warn(`⚠️ Devise inconnue: ${deviseCible}, conversion par défaut 1:1`);
+    return montantUSD;
+  }
+  return montantUSD / devise.tauxVersUSD;
+};
+
+/**
+ * Formater un montant selon la devise
+ * @param {number} montant - Montant à formater
+ * @param {string} codeDevise - Code de la devise
+ * @returns {string} - Montant formaté avec symbole
+ */
 const formaterMontant = (montant, codeDevise) => {
   const devise = currencies[codeDevise];
   if (!devise) return `${montant}`;
   
-  // Arrondir selon le nombre de décimales
   const valeur = montant.toFixed(devise.decimales);
   
-  // Placer le symbole avant ou après
   if (devise.position === 'before') {
     return `${devise.symbole} ${valeur}`;
   } else {
@@ -91,27 +114,10 @@ const formaterMontant = (montant, codeDevise) => {
   }
 };
 
-// Fonction pour convertir un montant d'une devise à une autre
-// @param {number} montant - Montant à convertir
-// @param {string} de - Code devise source
-// @param {string} vers - Code devise cible
-// @returns {number} - Montant converti
-const convertirDevise = (montant, de, vers) => {
-  if (de === vers) return montant;
-  
-  // Convertir d'abord en EUR (notre base)
-  const montantEUR = montant / currencies[de].taux;
-  
-  // Puis convertir vers la devise cible
-  return montantEUR * currencies[vers].taux;
-};
-
-// Exporter aussi la liste des codes pour le frontend
-const currencyCodes = Object.keys(currencies);
-
 module.exports = {
   currencies,
   currencyCodes,
-  formaterMontant,
-  convertirDevise
+  convertirVersUSD,
+  convertirDepuisUSD,
+  formaterMontant
 };

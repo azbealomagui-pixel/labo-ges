@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: SuperAdmin Dashboard
 // RÔLE: Tableau de bord administrateur système
-// VERSION: Corrigée - ESLint ok
+// VERSION: Finale avec affichage multi-devises
 // ===========================================
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -18,6 +18,15 @@ const SuperAdminDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [pagination, setPagination] = useState({ page: 1, total: 0, pages: 0 });
   const [filters, setFilters] = useState({ search: '', statut: '' });
+  const [deviseAffichage, setDeviseAffichage] = useState('USD');
+
+  // Devises disponibles pour l'affichage
+  const devises = [
+    { code: 'USD', symbole: '$', nom: 'Dollar US' },
+    { code: 'EUR', symbole: '€', nom: 'Euro' },
+    { code: 'GNF', symbole: 'FG', nom: 'Franc Guinéen' },
+    { code: 'XOF', symbole: 'CFA', nom: 'Franc CFA' }
+  ];
 
   // ===== Vérifier que l'utilisateur est super admin =====
   useEffect(() => {
@@ -99,6 +108,18 @@ const SuperAdminDashboard = () => {
     }
   };
 
+  // ===== Formater le CA selon la devise choisie =====
+  const getCAFormate = () => {
+    if (!stats?.caMensuel) return '0 $';
+    const montant = stats.caMensuel[deviseAffichage];
+    const devise = devises.find(d => d.code === deviseAffichage);
+    
+    if (deviseAffichage === 'GNF' || deviseAffichage === 'XOF') {
+      return `${Math.round(montant).toLocaleString()} ${devise?.symbole}`;
+    }
+    return `${montant?.toFixed(2)} ${devise?.symbole}`;
+  };
+
   const StatCard = ({ title, value, color, icon }) => (
     <div className="bg-white rounded-xl shadow-lg p-6">
       <div className="flex items-center justify-between">
@@ -106,9 +127,7 @@ const SuperAdminDashboard = () => {
           <p className="text-sm text-gray-500">{title}</p>
           <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
         </div>
-        <div className={`${color} p-3 rounded-lg`}>
-          {icon}
-        </div>
+        <div className={`${color} p-3 rounded-lg`}>{icon}</div>
       </div>
     </div>
   );
@@ -133,6 +152,19 @@ const SuperAdminDashboard = () => {
             </div>
             
             <div className="flex items-center gap-4">
+              {/* Sélecteur de devise */}
+              <select
+                value={deviseAffichage}
+                onChange={(e) => setDeviseAffichage(e.target.value)}
+                className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+              >
+                {devises.map(d => (
+                  <option key={d.code} value={d.code}>
+                    {d.nom} ({d.symbole})
+                  </option>
+                ))}
+              </select>
+
               <div className="text-right">
                 <p className="text-sm font-medium text-gray-900">
                   {user?.prenom} {user?.nom}
@@ -173,8 +205,8 @@ const SuperAdminDashboard = () => {
             icon={<span className="text-2xl">✅</span>}
           />
           <StatCard
-            title="CA mensuel"
-            value={`${stats?.caMensuel || 0} €`}
+            title={`CA mensuel (${deviseAffichage})`}
+            value={getCAFormate()}
             color="bg-yellow-100"
             icon={<span className="text-2xl">💰</span>}
           />

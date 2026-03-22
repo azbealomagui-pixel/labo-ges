@@ -1,7 +1,7 @@
 // ===========================================
 // FICHIER: src/models/User.js
 // RÔLE: Modèle Mongoose pour les utilisateurs
-// VERSION: Ultra-stable (sans erreur next)
+// VERSION: Ultra-stable avec cryptage bcrypt
 // ===========================================
 
 const mongoose = require('mongoose');
@@ -40,7 +40,7 @@ const userSchema = new mongoose.Schema({
     type: String,
     enum: {
       values: [
-        'super_admin','admin', 'admin_delegue', 'manager_labo',
+        'super_admin', 'admin', 'admin_delegue', 'manager_labo',
         'biologiste', 'technicien', 'secretaire', 'comptable', 'rh'
       ],
       message: 'Le rôle {VALUE} n\'est pas valide'
@@ -50,7 +50,7 @@ const userSchema = new mongoose.Schema({
   espaceId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Espace',
-    required: false  // ← CRUCIAL pour l'inscription
+    required: false
   },
   estProprietaire: {
     type: Boolean,
@@ -61,8 +61,6 @@ const userSchema = new mongoose.Schema({
     default: '',
     trim: true
   },
-
-  // Dans le schéma, après le champ 'poste'
   permissions: {
     type: [String],
     default: [],
@@ -77,23 +75,19 @@ const userSchema = new mongoose.Schema({
       'DELEGATE'
     ]
   },
-
   deleguePar: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User',
     default: null
   },
-
   dateDebutDelegation: {
     type: Date,
     default: null
   },
-
   dateFinDelegation: {
     type: Date,
     default: null
   },
-
   laboratoireId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Laboratoire',
@@ -107,17 +101,22 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// ===== MIDDLEWARE PRE-SAVE (CORRIGÉ) =====
+// ===== MIDDLEWARE PRE-SAVE : HASH DU MOT DE PASSE =====
 userSchema.pre('save', async function(next) {
   try {
-    // Vérifier que next est bien une fonction
+    // Vérifier si next est une fonction
     if (typeof next !== 'function') {
       console.error('❌ next n\'est pas une fonction dans pre-save');
-      // Sortir sans appeler next (Mongoose gère)
       return;
     }
 
+    // Ne hasher que si le mot de passe a été modifié
     if (!this.isModified('password')) {
+      return next();
+    }
+
+    // Vérifier que le mot de passe n'est pas déjà un hash bcrypt
+    if (this.password && this.password.startsWith('$2b$')) {
       return next();
     }
 
@@ -128,9 +127,6 @@ userSchema.pre('save', async function(next) {
     next(error);
   }
 });
-
-// ===== SUPPRESSION DU MIDDLEWARE PRE-VALIDATE (source du problème) =====
-// On nettoie les données dans la route, pas ici
 
 // ===== MÉTHODE DE COMPARAISON =====
 userSchema.methods.comparePassword = async function(candidatePassword) {

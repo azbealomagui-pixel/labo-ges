@@ -1,7 +1,7 @@
 // ===========================================
 // ROUTES: abonnementRoutes.js
 // RÔLE: Gestion des abonnements
-// VERSION: Corrigée avec authentification
+// VERSION: Finale avec conversion USD
 // ===========================================
 
 const express = require('express');
@@ -9,6 +9,7 @@ const Abonnement = require('../models/Abonnement');
 const Espace = require('../models/Espace');
 const { authenticate } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/checkPermission');
+const { convertirVersUSD } = require('../config/currencies');
 const router = express.Router();
 
 // ===== OBTENIR L'ABONNEMENT DE L'ESPACE DE L'UTILISATEUR =====
@@ -25,7 +26,6 @@ router.get('/mon-abonnement', authenticate, async (req, res) => {
 
     let abonnement = await Abonnement.findOne({ espaceId });
 
-    // Si pas d'abonnement, en créer un d'essai
     if (!abonnement) {
       abonnement = await Abonnement.creerEssai(espaceId);
     }
@@ -73,7 +73,7 @@ router.get('/espace/:espaceId', authenticate, checkPermission('VIEW_SETTINGS'), 
 // ===== RENOUVELER L'ABONNEMENT =====
 router.post('/renouveler', authenticate, async (req, res) => {
   try {
-    const { type } = req.body;
+    const { type, devise, montant } = req.body;
     const espaceId = req.user.espaceId;
 
     if (!type || !['mensuel', 'annuel'].includes(type)) {
@@ -89,7 +89,13 @@ router.post('/renouveler', authenticate, async (req, res) => {
       abonnement = await Abonnement.creerEssai(espaceId);
     }
 
-    const abonnementRenouvele = await Abonnement.renouveler(abonnement._id, type);
+    const devisePaiement = devise || 'USD';
+    const abonnementRenouvele = await Abonnement.renouveler(
+      abonnement._id, 
+      type, 
+      devisePaiement, 
+      montant
+    );
 
     res.json({
       success: true,
@@ -106,11 +112,23 @@ router.post('/renouveler', authenticate, async (req, res) => {
   }
 });
 
-// ===== ENREGISTRER UN PAIEMENT =====
+// ===== ENREGISTRER UN PAIEMENT (AVEC CONVERSION USD) =====
 router.post('/paiement', authenticate, async (req, res) => {
   try {
-    const { montant, methode, transactionId } = req.body;
+    const { montant, methode, transactionId, devise } = req.body;
     const espaceId = req.user.espaceId;
+
+    if (!montant) {
+      return res.status(400).json({
+        success: false,
+        message: 'Montant requis'
+      });
+    }
+
+    const espace = await Espace.findById(espaceId);
+    const devisePaiement = devise || espace?.deviseParDefaut || 'USD';
+
+    const montantUSD = convertirVersUSD(montant, devisePaiement);
 
     const abonnement = await Abonnement.findOne({ espaceId });
     if (!abonnement) {
@@ -122,7 +140,9 @@ router.post('/paiement', authenticate, async (req, res) => {
 
     abonnement.paiements.push({
       montant,
-      methode,
+      devise: devisePaiement,
+      montantUSD,
+      methode: methode || 'carte',
       transactionId: transactionId || `TXN-${Date.now()}`,
       statut: 'reussi'
     });
@@ -132,7 +152,12 @@ router.post('/paiement', authenticate, async (req, res) => {
     res.json({
       success: true,
       message: 'Paiement enregistré',
-      abonnement
+      abonnement: {
+        _id: abonnement._id,
+        type: abonnement.type,
+        statut: abonnement.statut,
+        paiements: abonnement.paiements
+      }
     });
 
   } catch (error) {
@@ -182,13 +207,11 @@ router.post('/cron/verifier', async (req, res) => {
     const dans7Jours = new Date(maintenant);
     dans7Jours.setDate(dans7Jours.getDate() + 7);
 
-    // Abonnements qui expirent dans 7 jours
     const expireBientot = await Abonnement.find({
       dateFin: { $lte: dans7Jours, $gte: maintenant },
       statut: 'actif'
     });
 
-    // Marquer les expirés
     const expireResult = await Abonnement.updateMany(
       { dateFin: { $lt: maintenant }, statut: 'actif' },
       { statut: 'expire' }

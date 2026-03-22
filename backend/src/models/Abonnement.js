@@ -1,7 +1,7 @@
 // ===========================================
 // MODÈLE: Abonnement
 // RÔLE: Gestion des abonnements des espaces
-// VERSION: Corrigée - source unique des abonnements
+// VERSION: Avec conversion USD pour les statistiques
 // ===========================================
 
 const mongoose = require('mongoose');
@@ -39,20 +39,17 @@ const abonnementSchema = new mongoose.Schema({
     default: 'actif'
   },
 
-  // ===== PRIX =====
+  // ===== PRIX (en USD par défaut) =====
   prix: {
     mensuel: { type: Number, default: 29 },
     annuel: { type: Number, default: 290 }
   },
-  devise: {
-    type: String,
-    default: 'EUR'
-  },
 
   // ===== PAIEMENTS =====
   paiements: [{
-    montant: Number,
-    devise: { type: String, default: 'EUR' },
+    montant: Number,           // Montant dans la devise de paiement
+    devise: { type: String, default: 'USD' },
+    montantUSD: Number,        // ← CONVERTI EN USD POUR STATS
     date: { type: Date, default: Date.now },
     methode: {
       type: String,
@@ -114,12 +111,13 @@ abonnementSchema.statics.creerEssai = async function(espaceId) {
     type: 'essai',
     dateDebut,
     dateFin,
-    statut: 'actif'
+    statut: 'actif',
+    paiements: []
   });
 };
 
 // ===== STATIC : Renouveler un abonnement =====
-abonnementSchema.statics.renouveler = async function(id, type) {
+abonnementSchema.statics.renouveler = async function(id, type, devise = 'USD', montant = null) {
   const abonnement = await this.findById(id);
   if (!abonnement) throw new Error('Abonnement non trouvé');
 
@@ -133,6 +131,22 @@ abonnementSchema.statics.renouveler = async function(id, type) {
   } else {
     throw new Error('Type invalide');
   }
+
+  // Calculer le montant si non fourni
+  const prix = type === 'mensuel' ? abonnement.prix.mensuel : abonnement.prix.annuel;
+  const montantPaiement = montant || prix;
+
+  // Ajouter le paiement avec conversion USD
+  const { convertirVersUSD } = require('../config/currencies');
+  const montantUSD = convertirVersUSD(montantPaiement, devise);
+
+  abonnement.paiements.push({
+    montant: montantPaiement,
+    devise: devise,
+    montantUSD: montantUSD,
+    methode: 'carte',
+    statut: 'reussi'
+  });
 
   abonnement.type = type;
   abonnement.dateDebut = dateDebut;

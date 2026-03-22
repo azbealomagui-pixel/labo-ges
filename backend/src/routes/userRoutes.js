@@ -1,7 +1,7 @@
 // ===========================================
 // FICHIER: src/routes/userRoutes.js
 // RÔLE: Routes pour la gestion des utilisateurs
-// VERSION: Avec journalisation (AuditLog)
+// VERSION: Avec bcrypt.compare et journalisation
 // ===========================================
 
 const express = require('express');
@@ -11,26 +11,20 @@ const User = require('../models/User');
 const crypto = require('crypto');
 const nodemailer = require('nodemailer');
 const PasswordReset = require('../models/PasswordReset');
-const AuditLog = require('../models/AuditLog'); // ← NOUVEAU
-const { checkPermission } = require('../middleware/checkPermission'); // ← NOUVEAU
+const AuditLog = require('../models/AuditLog');
+const { checkPermission } = require('../middleware/checkPermission');
 const router = express.Router();
-
 
 // ===========================================
 // CRÉER UN UTILISATEUR (POST)
 // ===========================================
 router.post('/', checkPermission('CREATE_USER'), async (req, res) => {
   try {
-    // Log de débogage (à supprimer en production)
     console.log('=== REQUÊTE REÇUE ===');
     console.log('Body complet:', req.body);
-    console.log('laboratoireId:', req.body.laboratoireId);
-    console.log('Type:', typeof req.body.laboratoireId);
-    console.log('=====================');
     
     const { nom, prenom, email, password, role, laboratoireId } = req.body;
     
-    // Validation des champs obligatoires
     const missingFields = [];
     if (!nom) missingFields.push('nom');
     if (!prenom) missingFields.push('prenom');
@@ -45,7 +39,6 @@ router.post('/', checkPermission('CREATE_USER'), async (req, res) => {
       });
     }
     
-    // Vérifier si l'email existe déjà
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({
@@ -54,7 +47,6 @@ router.post('/', checkPermission('CREATE_USER'), async (req, res) => {
       });
     }
     
-    // Préparer les données
     const userData = {
       nom,
       prenom,
@@ -63,16 +55,13 @@ router.post('/', checkPermission('CREATE_USER'), async (req, res) => {
       role: role || 'technicien'
     };
 
-    // Ajouter laboratoireId si fourni
     if (laboratoireId) {
       userData.laboratoireId = new mongoose.Types.ObjectId(laboratoireId);
     }
 
-    // Créer l'utilisateur 
     const newUser = new User(userData);
     await newUser.save();
     
-    // ===== JOURNALISATION =====
     await AuditLog.create({
       espaceId: req.user?.espaceId || userData.laboratoireId,
       utilisateurId: req.user?._id || newUser._id,
@@ -87,9 +76,7 @@ router.post('/', checkPermission('CREATE_USER'), async (req, res) => {
       userAgent: req.headers['user-agent']
     });
     
-    // Réponse sans mot de passe
-    const userResponse = newUser.toObject();
-    delete userResponse.password;
+    const userResponse = newUser.toPublicJSON();
     
     res.status(201).json({
       success: true,
@@ -183,7 +170,6 @@ router.post('/register', async (req, res) => {
   try {
     const { nom, prenom, email, password } = req.body;
 
-    // Validation
     const missingFields = [];
     if (!nom) missingFields.push('nom');
     if (!prenom) missingFields.push('prenom');
@@ -198,7 +184,6 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Validation email
     if (!/^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/.test(email)) {
       return res.status(400).json({
         success: false,
@@ -206,7 +191,6 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Validation mot de passe (minimum 6 caractères)
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
@@ -214,7 +198,6 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Vérifier si l'utilisateur existe déjà
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(409).json({
@@ -223,21 +206,18 @@ router.post('/register', async (req, res) => {
       });
     }
 
-    // Créer l'utilisateur (manager par défaut)
     const newUser = new User({
       nom,
       prenom,
       email,
       password,
       role: 'manager_labo',
-      estProprietaire: false // Sera mis à jour après création d'espace
+      estProprietaire: false
     });
 
     await newUser.save();
 
-    // Réponse sans mot de passe
-    const userResponse = newUser.toObject();
-    delete userResponse.password;
+    const userResponse = newUser.toPublicJSON();
 
     res.status(201).json({
       success: true,
@@ -267,13 +247,12 @@ router.post('/register', async (req, res) => {
 });
 
 // ===========================================
-// CONNEXION UTILISATEUR (POST /login)
+// CONNEXION UTILISATEUR (POST /login) - AVEC BCRYPT COMPARE
 // ===========================================
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
     
-    // Validation
     if (!email || !password) {
       return res.status(400).json({
         success: false,
@@ -281,17 +260,8 @@ router.post('/login', async (req, res) => {
       });
     }
     
-    // Chercher l'utilisateur par email
     const user = await User.findOne({ email });
     if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Email ou mot de passe incorrect'
-      });
-    }
-    
-    // Vérifier le mot de passe (à remplacer par bcrypt.compare plus tard)
-    if (user.password !== password) {
       return res.status(401).json({
         success: false,
         message: 'Email ou mot de passe incorrect'
@@ -303,6 +273,16 @@ router.post('/login', async (req, res) => {
       return res.status(403).json({
         success: false,
         message: 'Compte désactivé. Contactez l\'administrateur.'
+      });
+    }
+    
+    // ===== COMPARAISON AVEC BCRYPT =====
+    const isPasswordValid = await user.comparePassword(password);
+    
+    if (!isPasswordValid) {
+      return res.status(401).json({
+        success: false,
+        message: 'Email ou mot de passe incorrect'
       });
     }
     
@@ -318,9 +298,7 @@ router.post('/login', async (req, res) => {
       { expiresIn: '7d' }
     );
     
-    // Réponse sans mot de passe
-    const userResponse = user.toObject();
-    delete userResponse.password;
+    const userResponse = user.toPublicJSON();
     
     res.json({
       success: true,
@@ -343,7 +321,6 @@ router.post('/login', async (req, res) => {
 // ===========================================
 router.put('/:id', checkPermission('UPDATE_USER'), async (req, res) => {
   try {
-    // Empêcher la modification du mot de passe via cette route
     const updates = { ...req.body };
     delete updates.password;
     delete updates._id;
@@ -362,7 +339,6 @@ router.put('/:id', checkPermission('UPDATE_USER'), async (req, res) => {
       });
     }
 
-    // ===== JOURNALISATION =====
     await AuditLog.create({
       espaceId: req.user.espaceId,
       utilisateurId: req.user._id,
@@ -409,7 +385,6 @@ router.delete('/:id', checkPermission('DELETE_USER'), async (req, res) => {
       });
     }
 
-    // ===== JOURNALISATION =====
     await AuditLog.create({
       espaceId: req.user.espaceId,
       utilisateurId: req.user._id,
@@ -451,27 +426,22 @@ router.post('/forgot-password', async (req, res) => {
       });
     }
 
-    // Vérifier si l'utilisateur existe
     const user = await User.findOne({ email });
     if (!user) {
-      // Pour des raisons de sécurité, on renvoie un succès même si l'email n'existe pas
       return res.json({
         success: true,
         message: 'Si cet email existe, un lien de réinitialisation a été envoyé'
       });
     }
 
-    // Générer un token unique
     const token = crypto.randomBytes(32).toString('hex');
     
-    // Sauvegarder le token
     await PasswordReset.create({
       email,
       token,
-      expiresAt: new Date(Date.now() + 15 * 60 * 1000) // 15 min
+      expiresAt: new Date(Date.now() + 15 * 60 * 1000)
     });
 
-    // Configurer le transporteur d'email
     const transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: process.env.SMTP_PORT || 587,
@@ -482,10 +452,8 @@ router.post('/forgot-password', async (req, res) => {
       }
     });
 
-    // Lien de réinitialisation
     const resetLink = `${process.env.FRONTEND_URL || 'http://localhost:5173'}/reset-password/${token}`;
 
-    // Envoyer l'email
     await transporter.sendMail({
       from: '"Laboges" <noreply@laboges.com>',
       to: email,
@@ -532,7 +500,6 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
-    // Vérifier la longueur du mot de passe
     if (newPassword.length < 6) {
       return res.status(400).json({
         success: false,
@@ -540,7 +507,6 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
-    // Chercher le token
     const resetRequest = await PasswordReset.findOne({
       token,
       utilisé: false,
@@ -554,7 +520,6 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
-    // Trouver l'utilisateur
     const user = await User.findOne({ email: resetRequest.email });
     if (!user) {
       return res.status(404).json({
@@ -563,11 +528,10 @@ router.post('/reset-password', async (req, res) => {
       });
     }
 
-    // Mettre à jour le mot de passe
+    // Mettre à jour le mot de passe (le pre-save va le hasher)
     user.password = newPassword;
     await user.save();
 
-    // Marquer le token comme utilisé
     resetRequest.utilisé = true;
     await resetRequest.save();
 

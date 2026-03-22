@@ -1,7 +1,7 @@
 // ===========================================
 // ROUTES: superAdminRoutes.js
 // RÔLE: Administration système (super admin uniquement)
-// VERSION: Finale
+// VERSION: Finale avec stats en USD
 // ===========================================
 
 const express = require('express');
@@ -10,6 +10,7 @@ const User = require('../models/User');
 const Abonnement = require('../models/Abonnement');
 const { authenticate } = require('../middleware/auth');
 const { checkPermission } = require('../middleware/checkPermission');
+const { convertirDepuisUSD, formaterMontant } = require('../config/currencies');
 const router = express.Router();
 
 // ===== MIDDLEWARE : Vérifier que l'utilisateur est super admin =====
@@ -47,7 +48,6 @@ router.get('/espaces', authenticate, requireSuperAdmin, async (req, res) => {
 
     const total = await Espace.countDocuments(filter);
 
-    // Récupérer les abonnements pour chaque espace
     const espacesAvecAbonnement = await Promise.all(
       espaces.map(async (espace) => {
         const abonnement = await Abonnement.findOne({ espaceId: espace._id });
@@ -81,7 +81,7 @@ router.get('/espaces', authenticate, requireSuperAdmin, async (req, res) => {
 });
 
 // ===========================================
-// OBTENIR LES STATISTIQUES GLOBALES (GET)
+// OBTENIR LES STATISTIQUES GLOBALES (EN USD)
 // ===========================================
 router.get('/stats', authenticate, requireSuperAdmin, async (req, res) => {
   try {
@@ -95,16 +95,33 @@ router.get('/stats', authenticate, requireSuperAdmin, async (req, res) => {
       statut: 'actif' 
     });
 
-    // Chiffre d'affaires mensuel (simulé)
+    // ===== CA MENSUEL EN USD (BASE UNIFIÉE) =====
     const debutMois = new Date();
     debutMois.setDate(1);
     debutMois.setHours(0, 0, 0, 0);
     
     const paiementsMois = await Abonnement.aggregate([
       { $unwind: '$paiements' },
-      { $match: { 'paiements.date': { $gte: debutMois }, 'paiements.statut': 'reussi' } },
-      { $group: { _id: null, total: { $sum: '$paiements.montant' } } }
+      { 
+        $match: { 
+          'paiements.date': { $gte: debutMois }, 
+          'paiements.statut': 'reussi' 
+        } 
+      },
+      { 
+        $group: { 
+          _id: null, 
+          totalUSD: { $sum: '$paiements.montantUSD' }  // ← SOMME DES MONTANTS EN USD
+        } 
+      }
     ]);
+
+    const caMensuelUSD = paiementsMois[0]?.totalUSD || 0;
+
+    // ===== CA MENSUEL DANS LES AUTRES DEVISES (OPTIONNEL) =====
+    const caMensuelEUR = convertirDepuisUSD(caMensuelUSD, 'EUR');
+    const caMensuelGNF = convertirDepuisUSD(caMensuelUSD, 'GNF');
+    const caMensuelXOF = convertirDepuisUSD(caMensuelUSD, 'XOF');
 
     res.json({
       success: true,
@@ -115,7 +132,12 @@ router.get('/stats', authenticate, requireSuperAdmin, async (req, res) => {
         abonnementsExpires,
         espacesEssai,
         espacesPayants,
-        caMensuel: paiementsMois[0]?.total || 0
+        caMensuel: {
+          USD: caMensuelUSD,
+          EUR: caMensuelEUR,
+          GNF: Math.round(caMensuelGNF),  // GNF n'a pas de centimes
+          XOF: Math.round(caMensuelXOF)   // FCFA n'a pas de centimes
+        }
       }
     });
 
@@ -141,8 +163,7 @@ router.patch('/espaces/:id', authenticate, requireSuperAdmin, async (req, res) =
     espace.actif = actif !== undefined ? actif : espace.actif;
     await espace.save();
 
-    // Journaliser l'action
-    console.log(`📝 Super admin a ${actif ? 'activé' : 'suspendu'} l'espace ${espace.nom} (${id}) - Raison: ${raison || 'Non spécifiée'}`);
+    console.log(`📝 Super admin a ${actif ? 'activé' : 'suspendu'} l'espace ${espace.nom} (${id})`);
 
     res.json({
       success: true,
@@ -207,13 +228,8 @@ router.delete('/espaces/:id', authenticate, requireSuperAdmin, async (req, res) 
       return res.status(404).json({ success: false, message: 'Espace non trouvé' });
     }
 
-    // Supprimer l'abonnement associé
     await Abonnement.deleteOne({ espaceId: id });
-
-    // Désactiver tous les utilisateurs de l'espace
     await User.updateMany({ espaceId: id }, { actif: false });
-
-    // Supprimer l'espace
     await Espace.findByIdAndDelete(id);
 
     res.json({
