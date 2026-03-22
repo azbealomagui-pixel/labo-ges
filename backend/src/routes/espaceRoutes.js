@@ -1,13 +1,13 @@
 // ===========================================
 // ROUTES: espaceRoutes.js
 // RÔLE: Gestion des espaces (CRUD complet)
-// VERSION: Finale avec création auto abonnement
+// VERSION: Finale avec création auto abonnement et logs
 // ===========================================
 
 const express = require('express');
 const Espace = require('../models/Espace');
 const User = require('../models/User');
-const Abonnement = require('../models/Abonnement'); // ← AJOUT IMPORT
+const Abonnement = require('../models/Abonnement');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -47,7 +47,7 @@ const upload = multer({
 });
 
 // ===========================================
-// CRÉER UN ESPACE (POST) - CORRIGÉ
+// CRÉER UN ESPACE (POST) - VERSION FINALE
 // ===========================================
 router.post('/', async (req, res) => {
   try {
@@ -58,6 +58,7 @@ router.post('/', async (req, res) => {
       createdBy 
     } = req.body;
 
+    // Validation des champs obligatoires
     const missingFields = [];
     if (!nom) missingFields.push('nom');
     if (!adresse) missingFields.push('adresse');
@@ -74,6 +75,7 @@ router.post('/', async (req, res) => {
       });
     }
 
+    // Vérifications d'unicité
     const existingNom = await Espace.findOne({ nom });
     if (existingNom) {
       return res.status(409).json({ success: false, message: 'Ce nom d\'espace est déjà utilisé' });
@@ -89,30 +91,50 @@ router.post('/', async (req, res) => {
       return res.status(409).json({ success: false, message: 'Cet email est déjà utilisé' });
     }
 
+    // Vérifier que l'utilisateur créateur existe
+    const createur = await User.findById(createdBy);
+    if (!createur) {
+      return res.status(404).json({ success: false, message: 'Utilisateur créateur non trouvé' });
+    }
+
     // ===== CRÉER L'ESPACE (SANS CHAMP ABONNEMENT) =====
     const nouvelEspace = new Espace({
-      nom,
-      adresse,
-      telephone,
-      email,
-      numeroLicence,
-      numeroFiscal: numeroFiscal || '',
+      nom: nom.trim(),
+      adresse: adresse.trim(),
+      telephone: telephone.trim(),
+      email: email.toLowerCase().trim(),
+      numeroLicence: numeroLicence.trim(),
+      numeroFiscal: numeroFiscal ? numeroFiscal.trim() : '',
       deviseParDefaut: deviseParDefaut || 'EUR',
       langueParDefaut: langueParDefaut || 'fr',
       createdBy
-      // PLUS DE CHAMP ABONNEMENT ICI
     });
 
     await nouvelEspace.save();
+    console.log(`✅ Espace créé: ${nouvelEspace.nom} (${nouvelEspace._id})`);
 
     // ===== METTRE À JOUR L'UTILISATEUR =====
     await User.findByIdAndUpdate(createdBy, {
       espaceId: nouvelEspace._id,
       estProprietaire: true
     });
+    console.log(`✅ Utilisateur ${createur.email} mis à jour avec espaceId ${nouvelEspace._id}`);
 
     // ===== CRÉER L'ABONNEMENT D'ESSAI =====
-    await Abonnement.creerEssai(nouvelEspace._id);
+    try {
+      // Vérifier si un abonnement existe déjà (par sécurité)
+      const abonnementExistant = await Abonnement.findOne({ espaceId: nouvelEspace._id });
+      if (!abonnementExistant) {
+        await Abonnement.creerEssai(nouvelEspace._id);
+        console.log(`✅ Abonnement essai créé pour l'espace ${nouvelEspace.nom}`);
+      } else {
+        console.log(`ℹ️ Un abonnement existait déjà pour l'espace ${nouvelEspace.nom}`);
+      }
+    } catch (abonnementError) {
+      console.error(`⚠️ Erreur lors de la création de l'abonnement: ${abonnementError.message}`);
+      // On ne bloque pas la création de l'espace si l'abonnement échoue
+      // L'utilisateur pourra renouveler plus tard
+    }
 
     res.status(201).json({
       success: true,
@@ -256,7 +278,6 @@ router.post('/:id/membres', authenticate, checkPermission('CREATE_USER'), async 
     const espaceId = req.params.id;
 
     console.log('📝 Création membre pour espace:', espaceId);
-    console.log('📝 Données:', { nom, prenom, email, role });
 
     if (!nom || !prenom || !email || !password) {
       return res.status(400).json({
@@ -283,9 +304,9 @@ router.post('/:id/membres', authenticate, checkPermission('CREATE_USER'), async 
     }
 
     const nouveauMembre = new User({
-      nom,
-      prenom,
-      email,
+      nom: nom.trim(),
+      prenom: prenom.trim(),
+      email: email.toLowerCase().trim(),
       password,
       role: role || 'technicien',
       espaceId,
@@ -296,8 +317,7 @@ router.post('/:id/membres', authenticate, checkPermission('CREATE_USER'), async 
 
     await nouveauMembre.save();
 
-    const membreResponse = nouveauMembre.toObject();
-    delete membreResponse.password;
+    const membreResponse = nouveauMembre.toPublicJSON();
 
     console.log('✅ Membre créé avec succès:', membreResponse.email);
 
@@ -360,8 +380,7 @@ router.put('/:espaceId/membres/:userId', authenticate, checkPermission('UPDATE_U
 
     await membre.save();
 
-    const membreResponse = membre.toObject();
-    delete membreResponse.password;
+    const membreResponse = membre.toPublicJSON();
 
     res.json({
       success: true,

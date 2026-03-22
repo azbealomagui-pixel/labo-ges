@@ -1,7 +1,7 @@
 // ===========================================
 // FICHIER: src/models/User.js
 // RÔLE: Modèle Mongoose pour les utilisateurs
-// VERSION: Ultra-stable avec cryptage bcrypt
+// VERSION: Ultra-stable avec cryptage bcrypt FORCÉ
 // ===========================================
 
 const mongoose = require('mongoose');
@@ -101,15 +101,9 @@ const userSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// ===== MIDDLEWARE PRE-SAVE : HASH DU MOT DE PASSE =====
+// ===== MIDDLEWARE PRE-SAVE : HASH DU MOT DE PASSE (FORCÉ) =====
 userSchema.pre('save', async function(next) {
   try {
-    // Vérifier si next est une fonction
-    if (typeof next !== 'function') {
-      console.error('❌ next n\'est pas une fonction dans pre-save');
-      return;
-    }
-
     // Ne hasher que si le mot de passe a été modifié
     if (!this.isModified('password')) {
       return next();
@@ -120,10 +114,13 @@ userSchema.pre('save', async function(next) {
       return next();
     }
 
+    // Générer le salt et hasher
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
+    console.log('✅ Mot de passe hashé avec succès pour:', this.email);
     next();
   } catch (error) {
+    console.error('❌ Erreur lors du hashage du mot de passe:', error);
     next(error);
   }
 });
@@ -131,9 +128,12 @@ userSchema.pre('save', async function(next) {
 // ===== MÉTHODE DE COMPARAISON =====
 userSchema.methods.comparePassword = async function(candidatePassword) {
   try {
-    return await bcrypt.compare(candidatePassword, this.password);
+    if (!this.password) return false;
+    const isValid = await bcrypt.compare(candidatePassword, this.password);
+    return isValid;
   } catch (error) {
-    throw new Error('Erreur de comparaison');
+    console.error('❌ Erreur de comparaison:', error);
+    return false;
   }
 };
 

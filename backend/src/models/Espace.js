@@ -1,7 +1,6 @@
 // ===========================================
-// MODÈLE: Espace
-// RÔLE: Espace de travail (laboratoire, clinique, etc.)
-// VERSION: Corrigée - abonnement déplacé dans modèle séparé
+// MODÈLE: Espace.js
+// RÔLE: Espace de travail (sans champ abonnement)
 // ===========================================
 
 const mongoose = require('mongoose');
@@ -54,7 +53,6 @@ const espaceSchema = new mongoose.Schema({
     enum: ['fr', 'en', 'es'],
     default: 'fr'
   },
-  // ===== CHAMP LOGO =====
   logo: {
     type: String,
     default: null
@@ -70,18 +68,6 @@ const espaceSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true
-});
-
-// Index pour optimisations
-espaceSchema.index({ email: 1 });
-espaceSchema.index({ numeroLicence: 1 });
-
-// Virtual pour compter les employés
-espaceSchema.virtual('employesCount', {
-  ref: 'User',
-  localField: '_id',
-  foreignField: 'espaceId',
-  count: true
 });
 
 module.exports = mongoose.model('Espace', espaceSchema);
