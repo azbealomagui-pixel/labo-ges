@@ -22,15 +22,10 @@ const userSchema = new mongoose.Schema({
   actif: { type: Boolean, default: true }
 }, { timestamps: true });
 
-// ===== MIDDLEWARE PRE-SAVE : HASHAGE FORCÉ (VERSION ASYNCHRONE) =====
+// ===== UN SEUL MIDDLEWARE PRE-SAVE =====
 userSchema.pre('save', async function(next) {
-  // Ne hasher que si le mot de passe a été modifié
-  if (!this.isModified('password')) {
-    return next();
-  }
-
-  // Si déjà hashé, ne pas re-hasher
-  if (this.password && this.password.startsWith('$2b$')) {
+  // Ne hasher que si le mot de passe est modifié et pas déjà hashé
+  if (!this.isModified('password') || (this.password && this.password.startsWith('$2b$'))) {
     return next();
   }
 
@@ -47,6 +42,7 @@ userSchema.pre('save', async function(next) {
 
 // ===== MÉTHODE DE COMPARAISON =====
 userSchema.methods.comparePassword = async function(candidatePassword) {
+  if (!this.password) return false;
   return bcrypt.compare(candidatePassword, this.password);
 };
 
