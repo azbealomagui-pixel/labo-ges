@@ -6,7 +6,11 @@ const userSchema = new mongoose.Schema({
   prenom: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true, minlength: 6 },
-  role: { type: String, enum: ['super_admin', 'admin', 'manager_labo', 'biologiste', 'technicien', 'secretaire', 'comptable'], default: 'technicien' },
+  role: { 
+    type: String, 
+    enum: ['super_admin', 'admin', 'manager_labo', 'biologiste', 'technicien', 'secretaire', 'comptable'], 
+    default: 'technicien' 
+  },
   espaceId: { type: mongoose.Schema.Types.ObjectId, ref: 'Espace' },
   estProprietaire: { type: Boolean, default: false },
   poste: { type: String, default: '' },
@@ -18,23 +22,20 @@ const userSchema = new mongoose.Schema({
   actif: { type: Boolean, default: true }
 }, { timestamps: true });
 
-// ===== UN SEUL MIDDLEWARE PRE-SAVE =====
-userSchema.pre('save', function(next) {
-  // Ne hasher que si le mot de passe est modifié ET pas déjà hashé
-  if (!this.isModified('password') || (this.password && this.password.startsWith('$2b$'))) {
-    return next();
-  }
+// ===== FONCTION DE HASHAGE SÉPARÉE =====
+async function hashPassword(user) {
+  if (!user.isModified('password')) return;
+  if (user.password && user.password.startsWith('$2b$')) return;
+  
+  const salt = await bcrypt.genSalt(10);
+  user.password = await bcrypt.hash(user.password, salt);
+  console.log('✅ Mot de passe hashé pour:', user.email);
+}
 
-  // Hashage synchrone (pas de problème de callback)
-  try {
-    const salt = bcrypt.genSaltSync(10);
-    this.password = bcrypt.hashSync(this.password, salt);
-    console.log('✅ Mot de passe hashé pour:', this.email);
-    next();
-  } catch (error) {
-    console.error('❌ Erreur hashage:', error);
-    next(error);
-  }
+// ===== MIDDLEWARE PRE-SAVE SANS next =====
+userSchema.pre('save', function() {
+  // Appeler la fonction de hashage et retourner une promesse
+  return hashPassword(this);
 });
 
 // ===== MÉTHODE DE COMPARAISON =====
