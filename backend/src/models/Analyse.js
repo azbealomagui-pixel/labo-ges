@@ -1,9 +1,3 @@
-// ===========================================
-// MODÈLE: Analyse.js
-// RÔLE: Définition d'une analyse médicale (catalogue)
-// VERSION: Finale avec unité et valeurs de référence
-// ===========================================
-
 const mongoose = require('mongoose');
 
 const analyseSchema = new mongoose.Schema({
@@ -12,12 +6,12 @@ const analyseSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Le code de l\'analyse est requis'],
     unique: true,
-    uppercase: true,
+    uppercase: true,  // ← Convertit automatiquement en majuscules
     trim: true,
     validate: {
       validator: function(v) {
-        // Minimum 2 caractères : soit 2 lettres, soit 1 lettre + 1 chiffre
-        return /^[A-Z0-9]{2,}$/.test(v) && /[A-Z]/.test(v);
+        // Accepte minuscules ET majuscules (sera converti)
+        return /^[A-Za-z0-9]{2,}$/.test(v);
       },
       message: 'Le code doit contenir au moins 2 caractères (lettres et/ou chiffres)'
     }
@@ -26,14 +20,14 @@ const analyseSchema = new mongoose.Schema({
   nom: {
     fr: {
       type: String,
-      required: [true, 'Le nom en français est requis'],
+      required: [true, 'Le paramètre en français est requis'],
       trim: true
     },
     en: { type: String, trim: true, default: '' },
     es: { type: String, trim: true, default: '' }
   },
 
-  // ===== PARAMÈTRES (anciennement Catégorie) =====
+  // ===== PARAMÈTRES =====
   categorie: {
     type: String,
     required: true,
@@ -66,7 +60,7 @@ const analyseSchema = new mongoose.Schema({
     maxlength: 20
   },
 
-  // ===== VALEURS DE RÉFÉRENCE (par type d'échantillon) =====
+  // ===== VALEURS DE RÉFÉRENCE =====
   valeursReference: {
     eau: {
       min: { type: Number, default: null },
@@ -90,7 +84,7 @@ const analyseSchema = new mongoose.Schema({
     }
   },
 
-  // ===== NORME ISO (UNIQUE) =====
+  // ===== NORME ISO =====
   normeISO: {
     type: String,
     default: '',

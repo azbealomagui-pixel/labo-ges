@@ -1,7 +1,7 @@
 // ===========================================
 // PAGE: AnalyseForm
 // RÔLE: Création / modification d'une analyse
-// VERSION: Modifiée - environnemental avec norme ISO unique
+// VERSION: Environnementale avec conversion code majuscules
 // ===========================================
 
 import React, { useEffect, useState, useCallback } from 'react';
@@ -91,7 +91,7 @@ const AnalyseForm = () => {
     }
   }, [id, navigate]);
 
-  // ===== USEFFECT AVEC LA BONNE DÉPENDANCE =====
+  // ===== USEFFECT =====
   useEffect(() => {
     if (id) {
       fetchAnalyse();
@@ -100,6 +100,7 @@ const AnalyseForm = () => {
     }
   }, [id, fetchAnalyse]);
 
+  // ===== GESTIONNAIRE DE CHANGEMENT GÉNÉRIQUE =====
   const handleChange = (e) => {
     const { name, value } = e.target;
     if (name.includes('.')) {
@@ -116,6 +117,14 @@ const AnalyseForm = () => {
     }
   };
 
+  // ===== GESTIONNAIRE SPÉCIFIQUE POUR LE CODE (CONVERSION MAJUSCULES IMMÉDIATE) =====
+  const handleCodeChange = (e) => {
+    const rawValue = e.target.value;
+    const upperValue = rawValue.toUpperCase();
+    setFormData(prev => ({ ...prev, code: upperValue }));
+  };
+
+  // ===== GESTIONNAIRE POUR LES VALEURS DE RÉFÉRENCE =====
   const handleReferenceChange = (type, field, value) => {
     setFormData(prev => ({
       ...prev,
@@ -129,6 +138,7 @@ const AnalyseForm = () => {
     }));
   };
 
+  // ===== VALIDATION DU FORMULAIRE =====
   const validateForm = () => {
     if (!formData.code) {
       toast.error('Le code est obligatoire');
@@ -153,6 +163,7 @@ const AnalyseForm = () => {
     return true;
   };
 
+  // ===== SOUMISSION DU FORMULAIRE =====
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validateForm()) return;
@@ -161,7 +172,7 @@ const AnalyseForm = () => {
     try {
       const dataToSend = {
         ...formData,
-        code: formData.code.toUpperCase().trim(),
+        code: formData.code.toUpperCase().trim(), // Sécurité supplémentaire
         prix: {
           valeur: parseFloat(formData.prix.valeur),
           devise: formData.prix.devise
@@ -189,6 +200,7 @@ const AnalyseForm = () => {
     }
   };
 
+  // ===== AFFICHAGE DU LOADER =====
   if (loadingData) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -201,9 +213,24 @@ const AnalyseForm = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-5xl mx-auto px-4">
         <div className="mb-6 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {id ? 'Modifier l\'analyse' : 'Nouvelle analyse'}
-          </h1>
+          <div className="flex items-center gap-4">
+            {/* Bouton Dashboard */}
+            <button
+              onClick={() => navigate('/dashboard')}
+              className="flex items-center gap-2 bg-primary-50 text-primary-700 px-4 py-2 rounded-lg hover:bg-primary-100 transition-colors"
+              title="Tableau de bord"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+              </svg>
+              Dashboard
+            </button>
+
+            <h1 className="text-2xl font-bold text-gray-900">
+              {id ? 'Modifier l\'analyse' : 'Nouvelle analyse'}
+            </h1>
+          </div>
+          
           <button
             onClick={() => navigate('/analyses')}
             className="text-gray-600 hover:text-gray-900"
@@ -226,19 +253,19 @@ const AnalyseForm = () => {
                   type="text"
                   name="code"
                   value={formData.code}
-                  onChange={handleChange}
+                  onChange={handleCodeChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                  placeholder="Ex: PH001, pH, Cl"
+                  placeholder="Ex: pH-E, Pb-s, Cl"
                   maxLength={10}
                 />
                 <p className="text-xs text-gray-500 mt-1">
-                  Minimum 2 caractères (lettres et/ou chiffres)
+                  Minimum 2 caractères
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium mb-1">
-                  Sous paramètres (français) <span className="text-red-500">*</span>
+                  Sous paramètre (français) <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="text"
@@ -246,12 +273,12 @@ const AnalyseForm = () => {
                   value={formData.nom.fr}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                  placeholder="Ex: pH, Chlorures, Nitrates"
+                  placeholder="Ex: E.coli, pH eau, ..."
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Sous paramètres (anglais)</label>
+                <label className="block text-sm font-medium mb-1">Sous paramètre (anglais)</label>
                 <input
                   type="text"
                   name="nom.en"
@@ -263,7 +290,7 @@ const AnalyseForm = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1">Sous paramètres (espagnol)</label>
+                <label className="block text-sm font-medium mb-1">Sous paramètre (espagnol)</label>
                 <input
                   type="text"
                   name="nom.es"
@@ -281,7 +308,7 @@ const AnalyseForm = () => {
             <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">Paramètres</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium mb-1">Paramètres</label>
+                <label className="block text-sm font-medium mb-1">Paramètre</label>
                 <select
                   name="categorie"
                   value={formData.categorie}
@@ -356,7 +383,7 @@ const AnalyseForm = () => {
                   value={formData.uniteMesure}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  placeholder="Ex: mg/L, pH, µS/cm"
+                  placeholder="Ex: mg/L, µS/cm, ..."
                 />
               </div>
             </div>
@@ -408,7 +435,7 @@ const AnalyseForm = () => {
             </div>
           </div>
 
-          {/* ===== SECTION NORME ISO (UNIQUE) ===== */}
+          {/* ===== SECTION NORME ISO ===== */}
           <div>
             <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">Norme ISO</h2>
             <div>
@@ -442,14 +469,14 @@ const AnalyseForm = () => {
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50"
+              className="flex-1 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 disabled:opacity-50 transition-colors"
             >
               {loading ? 'Enregistrement...' : (id ? 'Modifier' : 'Créer')}
             </button>
             <button
               type="button"
               onClick={() => navigate('/analyses')}
-              className="flex-1 bg-gray-200 px-6 py-3 rounded-lg hover:bg-gray-300"
+              className="flex-1 bg-gray-200 px-6 py-3 rounded-lg hover:bg-gray-300 transition-colors"
             >
               Annuler
             </button>
