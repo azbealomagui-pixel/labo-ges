@@ -26,7 +26,7 @@ const PatientForm = () => {
     adresse: '',
     numeroSecuriteSociale: '',
     groupeSanguin: 'Inconnu',
-    allergies: '', // MODIFIÉ : string au lieu de tableau
+    allergies: '',
     observations: ''
   });
 
@@ -160,7 +160,7 @@ const PatientForm = () => {
     e.preventDefault();
     
     if (!validateForm()) {
-      toast.error('Veuillez corriger les erreurs dans le formulaire');
+      toast.error('Veuillez remplir dûment le formulaire');
       return;
     }
 
@@ -350,7 +350,7 @@ const PatientForm = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
               <p className="mt-1 text-sm text-gray-500">
-                Séparez les différentes analyses par des virgules ou retour à la ligne
+                Saisir mots/expresion essentiels
               </p>
             </div>
 

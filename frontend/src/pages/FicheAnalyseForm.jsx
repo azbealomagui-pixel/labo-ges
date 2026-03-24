@@ -560,7 +560,7 @@ const FicheAnalyseForm = () => {
           {/* ===== BOUTON PV FINAL ===== */}
           {ficheCreeeId && (
             <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-              <p className="text-green-700 mb-3 font-medium">✅ Fiche créée avec succès</p>
+              <p className="text-green-700 mb-3 font-medium">Fiche créée avec succès</p>
               <div className="flex gap-3">
                 <button
                   onClick={() => navigate(`/rapport/${ficheCreeeId}`)}

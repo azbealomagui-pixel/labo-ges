@@ -425,7 +425,7 @@ const Patients = () => {
               <p className="text-gray-700 mb-6">
                 Êtes-vous sûr de vouloir supprimer <span className="font-semibold">{deleteModal.patientNom}</span> ?
                 <br />
-                <span className="text-sm text-red-500 mt-2 inline-block">⚠️ Cette action est irréversible.</span>
+                <span className="text-sm text-red-500 mt-2 inline-block">Cette action est irréversible.</span>
               </p>
               
               <div className="flex gap-3">
