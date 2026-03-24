@@ -79,7 +79,7 @@ const Dashboard = () => {
               labels: evoRes.data.evolution.map(item => item.month || 'Mois'),
               datasets: [
                 {
-                  label: 'Patients',
+                  label: 'Clients',
                   data: evoRes.data.evolution.map(item => item.patients || 0),
                   backgroundColor: 'rgba(59, 130, 246, 0.5)',
                   borderColor: 'rgb(59, 130, 246)',
@@ -235,7 +235,7 @@ const Dashboard = () => {
                           className="w-full text-left px-4 py-2 text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
                         >
                           <span className="text-lg">⚙️</span>
-                          Paramètres
+                          Paramètres LaboGes
                         </button>
                       </div>
                     </div>
@@ -286,16 +286,25 @@ const Dashboard = () => {
       {/* ===== CONTENU PRINCIPAL ===== */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         
-        {/* ===== MESSAGE DE BIENVENUE ===== */}
+       {/* ===== MESSAGE DE BIENVENUE ===== */}
         <div className="mb-8 bg-white rounded-xl shadow-lg p-6">
           <div className="flex items-center gap-6">
             <img src={DashboardIllus} alt="Dashboard" className="h-24 w-24" />
             <div>
               <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                Bonjour, {user?.prenom} !
+                {(() => {
+                  const heure = new Date().getHours();
+                  if (heure < 12) {
+                    return `Bonjour, ${user?.prenom} !`;
+                  } else if (heure >= 13) {
+                    return `Bonsoir, ${user?.prenom} !`;
+                  } else {
+                    return `Bon appétit, ${user?.prenom} !`; // Entre 12h00 et 12h59
+                  }
+                })()}
               </h2>
               <p className="text-gray-600">
-                Voici un résumé de l'activité de votre laboratoire.
+                Voici le résumé de l'activité de votre laboratoire.
               </p>
             </div>
           </div>
@@ -350,10 +359,10 @@ const Dashboard = () => {
           >
             <img src={IconAdd} alt="Ajouter" className="w-12 h-12 mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 group-hover:text-primary-600">
-              Nouveau patient
+              Nouveau Client
             </h3>
             <p className="text-sm text-gray-500 mt-1">
-              Enregistrer un patient
+              Enregistrer un Client
             </p>
           </button>
           
@@ -383,7 +392,7 @@ const Dashboard = () => {
               Fiche d'analyses
             </h3>
             <p className="text-sm text-gray-500 mt-1">
-              Analyses patient
+              Analyses client
             </p>
           </button>
           

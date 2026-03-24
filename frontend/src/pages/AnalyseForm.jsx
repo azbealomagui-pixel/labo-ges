@@ -446,7 +446,7 @@ const AnalyseForm = () => {
                 value={formData.normeISO}
                 onChange={(e) => setFormData(prev => ({ ...prev, normeISO: e.target.value }))}
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
-                placeholder="Ex: ISO 17025, ISO 5667-1, ISO 9308-1"
+                placeholder="Ex: ISO 17025, ISO 5667-1"
               />
               <p className="text-xs text-gray-500 mt-1">Norme de référence utilisée pour cette analyse</p>
             </div>

@@ -39,7 +39,7 @@ const STATUS_CONFIG = {
     bgColor: 'bg-green-100',
     textColor: 'text-green-800',
     borderColor: 'border-green-200',
-    description: 'Devis transmis au patient',
+    description: 'Devis transmis au client',
     actions: ['accepter', 'refuser', 'annuler']
   },
   accepte: {
@@ -47,7 +47,7 @@ const STATUS_CONFIG = {
     bgColor: 'bg-purple-100',
     textColor: 'text-purple-800',
     borderColor: 'border-purple-200',
-    description: 'Accepté par le patient',
+    description: 'Accepté par le client',
     actions: ['payer', 'annuler']
   },
   refuse: {
@@ -55,7 +55,7 @@ const STATUS_CONFIG = {
     bgColor: 'bg-orange-100',
     textColor: 'text-orange-800',
     borderColor: 'border-orange-200',
-    description: 'Refusé par le patient',
+    description: 'Refusé par le client',
     actions: []
   },
   paye: {
@@ -116,7 +116,7 @@ const Devis = () => {
         setDevis(data);
         setFilteredDevis(data);
       } catch (err) {
-        console.error('❌ Erreur chargement devis:', err);
+        console.error('Erreur chargement devis:', err);
         toast.error('Erreur chargement des devis');
       } finally {
         setLoading(false);
@@ -138,7 +138,7 @@ const Devis = () => {
         const response = await api.get(`/espaces/${espaceId}`);
         setLaboratoire(response.data.espace);
       } catch (err) {
-        console.error('❌ Erreur chargement espace:', err);
+        console.error('Erreur chargement espace:', err);
       }
     };
     
@@ -179,7 +179,7 @@ const Devis = () => {
     setActionLoading(id);
     try {
       await api.delete(`/devis/${id}`);
-      toast.success(`✅ Devis ${numero} supprimé`);
+      toast.success(`Devis ${numero} supprimé`);
       
       const updatedDevis = devis.filter(d => d._id !== id);
       setDevis(updatedDevis);
@@ -198,7 +198,7 @@ const Devis = () => {
       setFilteredDevis(filtered);
       
     } catch (err) {
-      console.error('❌ Erreur suppression:', err);
+      console.error('Erreur suppression:', err);
       toast.error(err.response?.data?.message || 'Erreur lors de la suppression');
     } finally {
       setActionLoading(null);
@@ -220,7 +220,7 @@ const Devis = () => {
 
       exportToExcel(devisAExporter, `devis-${new Date().toISOString().split('T')[0]}`, {
         numero: 'N° Devis',
-        patient: 'Patient',
+        patient: 'Client',
         date: 'Date',
         montant: 'Montant',
         devise: 'Devise',
@@ -228,9 +228,9 @@ const Devis = () => {
         remise: 'Remise %'
       });
       
-      toast.success(`📊 ${devisAExporter.length} devis exportés`);
+      toast.success(`${devisAExporter.length} devis exportés`);
     } catch (err) {
-      console.error('❌ Erreur export Excel:', err);
+      console.error('Erreur export Excel:', err);
       toast.error('Erreur lors de l\'export Excel');
     }
   };
@@ -238,7 +238,7 @@ const Devis = () => {
   // ===== CHANGEMENT DE STATUT =====
   const updateStatut = async (id, nouveauStatut, action) => {
     const confirmMessages = {
-      envoyer: 'Voulez-vous envoyer ce devis au patient ?',
+      envoyer: 'Voulez-vous envoyer ce devis au client ?',
       accepter: 'Voulez-vous accepter ce devis ?',
       refuser: 'Voulez-vous refuser ce devis ?',
       payer: 'Voulez-vous marquer ce devis comme payé ?',
@@ -275,16 +275,16 @@ const Devis = () => {
         setFilteredDevis(filtered);
         
         const messages = {
-          envoye: '📧 Devis envoyé',
-          accepte: '✅ Devis accepté',
-          refuse: '❌ Devis refusé',
-          paye: '💰 Devis payé',
-          annule: '🚫 Devis annulé'
+          envoye: 'Devis envoyé',
+          accepte: 'Devis accepté',
+          refuse: 'Devis refusé',
+          paye: 'Devis payé',
+          annule: 'Devis annulé'
         };
         toast.success(messages[nouveauStatut]);
       }
     } catch (err) {
-      console.error('❌ Erreur changement statut:', err);
+      console.error('Erreur changement statut:', err);
       toast.error(err.response?.data?.message || 'Erreur lors du changement de statut');
     } finally {
       setActionLoading(null);
@@ -316,7 +316,7 @@ const Devis = () => {
             onClick={() => updateStatut(devisItem._id, 'envoye', 'envoyer')}
             disabled={actionLoading === devisItem._id}
             className="p-1 bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50 transition-colors"
-            title="Envoyer au patient"
+            title="Envoyer au client"
           >
             <img src={IconSend} alt="Envoyer" className="w-4 h-4" />
           </button>

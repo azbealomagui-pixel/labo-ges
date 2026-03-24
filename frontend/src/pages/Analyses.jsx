@@ -61,7 +61,7 @@ const Analyses = () => {
     } finally {
       setLoading(false);
     }
-  }, [user]); // ← CORRIGÉ : user comme dépendance
+  }, [user]); 
 
   // ===== RECHARGEMENT QUAND ON REVIENT SUR LA PAGE =====
   useEffect(() => {

@@ -30,7 +30,7 @@ const RapportForm = () => {
         // Étape 1 : Essayer de charger un rapport existant
         try {
           const response = await api.get(`/rapports/${id}`);
-          console.log('✅ Rapport existant chargé:', response.data.rapport);
+          console.log('Rapport existant chargé:', response.data.rapport);
           setRapport(response.data.rapport);
           setResultats(response.data.rapport.resultats || []);
           setLoading(false);
@@ -38,11 +38,11 @@ const RapportForm = () => {
         } catch (error) {
           // Si 404, le rapport n'existe pas encore, on le crée
           if (error.response?.status === 404) {
-            console.log('📝 Création d\'un nouveau rapport...');
+            console.log('Création d\'un nouveau rapport...');
             const createResponse = await api.post(`/rapports/from-fiche/${id}`, {
               validePar: user._id
             });
-            console.log('✅ Nouveau rapport créé:', createResponse.data.rapport);
+            console.log('Nouveau rapport créé:', createResponse.data.rapport);
             setRapport(createResponse.data.rapport);
             setResultats(createResponse.data.rapport.resultats || []);
           } else {
@@ -51,7 +51,7 @@ const RapportForm = () => {
           }
         }
       } catch (error) {
-        console.error('❌ Erreur chargement rapport:', error);
+        console.error('Erreur chargement rapport:', error);
         toast.error('Erreur lors du chargement du rapport');
         navigate('/fiches-analyses');
       } finally {
@@ -93,18 +93,18 @@ const RapportForm = () => {
 
     setSaving(true);
     try {
-      console.log('📤 Sauvegarde des résultats...');
+      console.log('Sauvegarde des résultats...');
       const response = await api.put(`/rapports/${rapport._id}/resultats`, { 
         resultats: resultats 
       });
       
       if (response.data.success) {
-        toast.success('✅ Résultats sauvegardés');
+        toast.success('Résultats sauvegardés');
         setRapport(response.data.rapport);
-        console.log('✅ Sauvegarde réussie');
+        console.log('Sauvegarde réussie');
       }
     } catch (error) {
-      console.error('❌ Erreur sauvegarde:', error);
+      console.error('Erreur sauvegarde:', error);
       toast.error(error.response?.data?.message || 'Erreur lors de la sauvegarde');
     } finally {
       setSaving(false);
@@ -123,7 +123,7 @@ const RapportForm = () => {
       });
 
       if (response.data.success) {
-        toast.success('✅ Rapport validé');
+        toast.success('Rapport validé');
         
         // Charger l'espace avant de générer le PDF
         const espaceId = user?.laboratoireId || user?.espaceId;
@@ -139,7 +139,7 @@ const RapportForm = () => {
         }
       }
     } catch (error) {
-      console.error('❌ Erreur validation:', error);
+      console.error('Erreur validation:', error);
       toast.error('Erreur validation');
     }
   };
@@ -180,7 +180,7 @@ const RapportForm = () => {
             </button>
             <span>|</span>
             <button onClick={() => navigate('/dashboard')} className="text-gray-600 hover:text-gray-900">
-              🏠 Dashboard
+              Dashboard
             </button>
           </div>
 
@@ -288,7 +288,7 @@ const RapportForm = () => {
                 }}
                 className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
               >
-                📄 Voir le PDF
+                Voir le PDF
               </button>
             )}
           </div>

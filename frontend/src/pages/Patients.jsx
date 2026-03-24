@@ -41,11 +41,11 @@ const Patients = () => {
       setPatients(data);
       setFilteredPatients(data);
     } catch (error) {
-      console.error('❌ Erreur chargement patients:', {
+      console.error('Erreur chargement clients:', {
         message: error.message,
         status: error.response?.status
       });
-      toast.error('Impossible de charger la liste des patients. Vérifiez votre connexion.');
+      toast.error('Impossible de charger la liste des clients. Vérifiez votre connexion.');
     } finally {
       setLoading(false);
     }
@@ -59,7 +59,7 @@ const Patients = () => {
         const response = await api.get(`/espaces/${espaceId}`);
         setEspace(response.data.espace);
       } catch (error) {
-        console.error('❌ Erreur chargement espace:', error.message);
+        console.error('Erreur chargement espace:', error.message);
       }
     };
     if (user?.espaceId || user?.laboratoireId) {
@@ -85,7 +85,7 @@ const Patients = () => {
         setFilteredPatients(filtered);
         
         if (filtered.length === 0) {
-          toast.info(`🔍 Aucun patient trouvé pour "${searchTerm}"`, { autoClose: 2000 });
+          toast.info(`🔍 Aucun client trouvé pour "${searchTerm}"`, { autoClose: 2000 });
         }
       } else {
         setFilteredPatients(patients);
@@ -108,7 +108,7 @@ const Patients = () => {
   const handleConfirmDelete = async () => {
     try {
       await api.delete(`/patients/${deleteModal.patientId}`);
-      toast.success(`🗑️ ${deleteModal.patientNom} a été supprimé`);
+      toast.success(`${deleteModal.patientNom} a été supprimé`);
       
       const updatedPatients = patients.filter(p => p._id !== deleteModal.patientId);
       setPatients(updatedPatients);
@@ -127,8 +127,8 @@ const Patients = () => {
       setDeleteModal({ isOpen: false, patientId: null, patientNom: '' });
       
     } catch (error) {
-      console.error('❌ Erreur suppression:', error.message);
-      toast.error(error.response?.data?.message || '❌ Échec de la suppression. Veuillez réessayer.');
+      console.error('Erreur suppression:', error.message);
+      toast.error(error.response?.data?.message || 'Échec de la suppression. Veuillez réessayer.');
     }
   };
 
@@ -161,10 +161,10 @@ const Patients = () => {
         observations: 'Observations'
       });
       
-      toast.success(`📊 ${patientsAExporter.length} patient(s) exportés avec succès`);
+      toast.success(`📊 ${patientsAExporter.length} client(s) exportés avec succès`);
     } catch (error) {
-      console.error('❌ Erreur Excel:', error.message);
-      toast.error('❌ Erreur lors de l\'export Excel');
+      console.error('Erreur Excel:', error.message);
+      toast.error('Erreur lors de l\'export Excel');
     }
   };
 
@@ -178,8 +178,8 @@ const Patients = () => {
         setTimeout(() => URL.revokeObjectURL(url), 1000);
       }
     } catch (error) {
-      console.error('❌ Erreur PDF:', error.message);
-      toast.error('❌ Erreur lors de la génération du PDF');
+      console.error('Erreur PDF:', error.message);
+      toast.error('Erreur lors de la génération du PDF');
     }
   };
 
@@ -187,12 +187,12 @@ const Patients = () => {
     try {
       const doc = await genererPDFPatient(patient, espace);
       if (doc) {
-        doc.save(`patient-${patient.nom}-${patient.prenom}.pdf`);
-        toast.success(`📄 PDF téléchargé : ${patient.prenom} ${patient.nom}`);
+        doc.save(`client-${patient.nom}-${patient.prenom}.pdf`);
+        toast.success(`PDF téléchargé : ${patient.prenom} ${patient.nom}`);
       }
     } catch (error) {
-      console.error('❌ Erreur PDF:', error.message);
-      toast.error('❌ Erreur lors du téléchargement du PDF');
+      console.error('Erreur PDF:', error.message);
+      toast.error('Erreur lors du téléchargement du PDF');
     }
   };
 
@@ -202,7 +202,7 @@ const Patients = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-primary-600 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement des patients...</p>
+          <p className="text-gray-600">Chargement des clients...</p>
         </div>
       </div>
     );
@@ -229,10 +229,10 @@ const Patients = () => {
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
           <div>
             <h1 className="text-2xl md:text-3xl font-bold text-gray-900">
-              Gestion des patients
+              Gestion des clients
             </h1>
             <p className="text-gray-600 mt-1">
-              {filteredPatients.length} patient(s) affiché(s) sur {patients.length}
+              {filteredPatients.length} client(s) affiché(s) sur {patients.length}
             </p>
           </div>
           
@@ -254,7 +254,7 @@ const Patients = () => {
               className="flex items-center gap-2 bg-primary-600 text-white px-4 py-2 rounded-lg hover:bg-primary-700 transition-colors shadow-lg hover:shadow-xl"
             >
               <img src={IconAdd} alt="Ajouter" className="w-5 h-5" />
-              Nouveau patient
+              Nouveau client
             </button>
           </div>
         </div>
@@ -307,7 +307,7 @@ const Patients = () => {
                   className="inline-flex items-center gap-2 bg-primary-600 text-white px-6 py-3 rounded-lg hover:bg-primary-700 transition-colors"
                 >
                   <img src={IconAdd} alt="" className="w-5 h-5" />
-                  Ajouter un patient
+                  Ajouter un client
                 </button>
               )}
             </div>
@@ -316,7 +316,7 @@ const Patients = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Patient</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Client</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">N° Sécurité Sociale</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>

@@ -97,8 +97,8 @@ const PatientForm = () => {
         const response = await api.get(`/patients/${id}`);
         setFormData(response.data.patient);
       } catch (err) {
-        console.error('Erreur chargement patient:', err);
-        toast.error('Impossible de charger les données du patient');
+        console.error('Erreur chargement client:', err);
+        toast.error('Impossible de charger les données du client');
         navigate('/patients');
       } finally {
         setLoading(false);
@@ -160,7 +160,7 @@ const PatientForm = () => {
     e.preventDefault();
     
     if (!validateForm()) {
-      toast.error('Veuillez corriger les erreurs dans le formulaire');
+      toast.error('Veuillez corriger dûment remplir le formulaire');
       return;
     }
 
@@ -178,15 +178,15 @@ const PatientForm = () => {
 
       if (id) {
         await api.put(`/patients/${id}`, dataToSend);
-        toast.success('✅ Patient modifié avec succès');
+        toast.success('Client modifié avec succès');
       } else {
         await api.post('/patients', dataToSend);
-        toast.success('✅ Patient créé avec succès');
+        toast.success('Clients créé avec succès');
       }
       
       navigate('/patients');
     } catch (err) {
-      console.error('❌ Erreur sauvegarde:', err);
+      console.error('Erreur sauvegarde:', err);
       console.error('📤 Données envoyées:', err.config?.data);
       toast.error(err.response?.data?.message || 'Erreur lors de la sauvegarde');
     } finally {
@@ -339,7 +339,7 @@ const PatientForm = () => {
             {/* Allergies */}
             <div>
               <label className="block text-sm font-medium mb-2">
-                Allergies (séparées par des virgules)
+                Besoin d'analyse
               </label>
               <input
                 type="text"
@@ -352,7 +352,7 @@ const PatientForm = () => {
                     allergies: value.split(',').map(a => a.trim()).filter(a => a)
                   });
                 }}
-                placeholder="ex: pénicilline, arachides, lactose"
+                placeholder="ex: Conductivité électrique, Carbone organique total (COT)"
                 className="w-full px-4 py-2 border rounded-lg"
               />
             </div>
