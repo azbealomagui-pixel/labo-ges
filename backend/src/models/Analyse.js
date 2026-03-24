@@ -14,10 +14,15 @@ const analyseSchema = new mongoose.Schema({
     unique: true,
     uppercase: true,
     trim: true,
-    match: [/^[A-Z0-9]{3,10}$/, 'Le code doit contenir 3 à 10 caractères alphanumériques']
+    validate: {
+      validator: function(v) {
+        // Minimum 2 caractères : soit 2 lettres, soit 1 lettre + 1 chiffre
+        return /^[A-Z0-9]{2,}$/.test(v) && /[A-Z]/.test(v);
+      },
+      message: 'Le code doit contenir au moins 2 caractères (lettres et/ou chiffres)'
+    }
   },
 
-  // ===== NOM MULTILANGUE =====
   nom: {
     fr: {
       type: String,
@@ -28,15 +33,12 @@ const analyseSchema = new mongoose.Schema({
     es: { type: String, trim: true, default: '' }
   },
 
-  // ===== CATÉGORIE =====
+  // ===== PARAMÈTRES (anciennement Catégorie) =====
   categorie: {
     type: String,
     required: true,
-    enum: [
-      'Hématologie', 'Biochimie', 'Hormonologie', 'Sérologie',
-      'Bactériologie', 'Parasitologie', 'Virologie', 'Immunologie', 'Autre'
-    ],
-    default: 'Hématologie'
+    enum: ['Microbiologie', 'Physico-chimique', 'Chimie'],
+    default: 'Microbiologie'
   },
 
   // ===== PRIX =====
@@ -45,12 +47,12 @@ const analyseSchema = new mongoose.Schema({
     devise: { type: String, enum: ['EUR', 'USD', 'GNF', 'XOF'], default: 'EUR' }
   },
 
-  // ===== ÉCHANTILLON =====
+  // ===== TYPE D'ÉCHANTILLON =====
   typeEchantillon: {
     type: String,
     required: true,
-    enum: ['Sang', 'Urine', 'Selles', 'LCR', 'Prélèvement', 'Autre'],
-    default: 'Sang'
+    enum: ['Eau', 'Sol', 'Sédiment', 'Aliment'],
+    default: 'Eau'
   },
 
   // ===== DÉLAI =====
@@ -64,35 +66,39 @@ const analyseSchema = new mongoose.Schema({
     maxlength: 20
   },
 
-  // ===== VALEURS DE RÉFÉRENCE (NORMES) =====
+  // ===== VALEURS DE RÉFÉRENCE (par type d'échantillon) =====
   valeursReference: {
-    homme: {
+    eau: {
       min: { type: Number, default: null },
       max: { type: Number, default: null },
       texte: { type: String, default: '' }
     },
-    femme: {
+    sol: {
       min: { type: Number, default: null },
       max: { type: Number, default: null },
       texte: { type: String, default: '' }
     },
-    enfant: {
+    sediment: {
+      min: { type: Number, default: null },
+      max: { type: Number, default: null },
+      texte: { type: String, default: '' }
+    },
+    aliment: {
       min: { type: Number, default: null },
       max: { type: Number, default: null },
       texte: { type: String, default: '' }
     }
   },
 
+  // ===== NORME ISO (UNIQUE) =====
+  normeISO: {
+    type: String,
+    default: '',
+    trim: true
+  },
+
   // ===== INSTRUCTIONS =====
   instructions: { type: String, default: '', trim: true, maxlength: 1000 },
-
-  // ===== NORMES MÉDICALES INTERNATIONALES =====
-  normesMedicales: {
-    loinc: { type: String, default: '' },
-    snomed: { type: String, default: '' },
-    iso15189: { type: String, default: '' },
-    autres: { type: String, default: '' }
-  },
 
   // ===== MÉTADONNÉES =====
   laboratoireId: {
