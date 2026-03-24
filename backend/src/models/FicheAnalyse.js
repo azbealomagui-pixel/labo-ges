@@ -9,7 +9,7 @@ const ficheAnalyseSchema = new mongoose.Schema({
   patientId: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Patient',
-    required: [true, "L'ID du patient est requis"]
+    required: [true, "L'ID du client est requis"]
   },
 
   // ===== LABORATOIRE =====

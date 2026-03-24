@@ -93,7 +93,7 @@ router.post('/from-fiche/:ficheId', authenticate, checkPermission('CREATE_RAPPOR
 
     res.status(201).json({ success: true, message: 'Rapport créé', rapport: nouveauRapport });
   } catch (error) {
-    console.error('❌ Erreur création rapport:', error);
+    console.error('Erreur création rapport:', error);
     res.status(500).json({ success: false, message: error.message });
   }
 });

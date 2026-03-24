@@ -30,7 +30,7 @@ const ActivityChart = ({ data = [] }) => {
     labels: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
     datasets: [
       {
-        label: 'Patients',
+        label: 'Clients',
         data: [12, 19, 15, 17, 14, 23],
         backgroundColor: 'rgba(59, 130, 246, 0.5)',
         borderColor: 'rgb(59, 130, 246)',

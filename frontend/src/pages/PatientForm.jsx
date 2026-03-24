@@ -290,7 +290,7 @@ const PatientForm = () => {
           </div>
 
           <h1 className="text-2xl font-bold text-gray-900 mb-6">
-            {id ? 'Modifier le patient' : 'Nouveau patient'}
+            {id ? 'Modifier le client' : 'Nouveau client'}
           </h1>
 
           <form onSubmit={handleSubmit} className="space-y-6">

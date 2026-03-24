@@ -63,9 +63,9 @@ const DevisForm = () => {
           setRemise(devisData.remiseGlobale || 0);
           setSelectedDevise(devisData.devise || 'EUR');
           
-          toast.success('✅ Devis chargé avec succès');
+          toast.success('Devis chargé avec succès');
         } catch (err) {
-          console.error('❌ Erreur chargement devis:', err);
+          console.error('Erreur chargement devis:', err);
           toast.error('Impossible de charger le devis');
           navigate('/devis');
         } finally {
@@ -85,8 +85,8 @@ const DevisForm = () => {
         const response = await api.get(`/patients/labo/${espaceId}`);
         setPatients(response.data.patients || []);
       } catch (err) {
-        console.error('❌ Erreur chargement patients:', err);
-        toast.error('Erreur chargement patients');
+        console.error('Erreur chargement clients:', err);
+        toast.error('Erreur chargement clients');
       }
     };
     fetchPatients();
@@ -101,7 +101,7 @@ const DevisForm = () => {
         const response = await api.get(`/analyses/labo/${espaceId}`);
         setAnalyses(response.data.analyses || []);
       } catch (err) {
-        console.error('❌ Erreur chargement analyses:', err);
+        console.error('Erreur chargement analyses:', err);
         toast.error('Erreur chargement analyses');
       }
     };
@@ -111,7 +111,7 @@ const DevisForm = () => {
   // ===== VALIDATION =====
   const validateForm = () => {
     const newErrors = {};
-    if (!selectedPatient) newErrors.patient = 'Veuillez sélectionner un patient';
+    if (!selectedPatient) newErrors.patient = 'Veuillez sélectionner un client';
     if (selectedAnalyses.length === 0) newErrors.analyses = 'Veuillez ajouter au moins une analyse';
     if (remise < 0 || remise > 100) newErrors.remise = 'La remise doit être entre 0 et 100%';
     setErrors(newErrors);
@@ -176,7 +176,7 @@ const DevisForm = () => {
       const doc = await genererPDFDevis(devisData, espaceFromAuth, user);
       if (doc) ouvrirPDF(doc);
     } catch (error) {
-      console.error('❌ Erreur PDF:', error);
+      console.error('Erreur PDF:', error);
       toast.error('Erreur génération PDF');
     }
   };
@@ -216,21 +216,21 @@ const DevisForm = () => {
         notes: `Devis ${id ? 'modifié' : 'créé'} par ${user.prenom} ${user.nom}`
       };
 
-      console.log('📦 Données envoyées:', devisData);
+      console.log('Données envoyées:', devisData);
 
       if (id) {
         const response = await api.put(`/devis/${id}`, devisData);
         setDevis(response.data.devis);
-        toast.success('✅ Devis modifié avec succès');
+        toast.success('Devis modifié avec succès');
       } else {
         const response = await api.post('/devis', devisData);
         setDevis(response.data.devis);
-        toast.success('✅ Devis créé avec succès');
+        toast.success('Devis créé avec succès');
       }
       
       navigate('/devis');
     } catch (err) {
-      console.error('❌ Erreur:', err);
+      console.error('Erreur:', err);
       toast.error(err.response?.data?.message || 'Erreur lors de la sauvegarde');
     } finally {
       setLoading(false);
@@ -294,12 +294,12 @@ const DevisForm = () => {
             
             {/* Colonne patient */}
             <div>
-              <h2 className="text-lg font-semibold mb-4">1. Patient</h2>
+              <h2 className="text-lg font-semibold mb-4">1. Client</h2>
               
               <div className="relative mb-4">
                 <input
                   type="text"
-                  placeholder="Rechercher un patient..."
+                  placeholder="Rechercher un client..."
                   value={searchPatient}
                   onChange={(e) => setSearchPatient(e.target.value)}
                   className="w-full pl-10 pr-4 py-2 border rounded-lg"
@@ -310,7 +310,7 @@ const DevisForm = () => {
               <div className="border rounded-lg max-h-60 overflow-y-auto">
                 {filteredPatients.length === 0 ? (
                   <div className="p-4 text-center text-gray-500">
-                    Aucun patient trouvé
+                    Aucun client trouvé
                   </div>
                 ) : (
                   filteredPatients.map(p => (

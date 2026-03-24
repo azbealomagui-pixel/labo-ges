@@ -54,7 +54,7 @@ router.post('/', authenticate, checkPermission('CREATE_DEVIS'), async (req, res)
     if (!patient) {
       return res.status(404).json({
         success: false,
-        message: 'Patient non trouvé'
+        message: 'Client non trouvé'
       });
     }
 
@@ -141,12 +141,12 @@ router.post('/', authenticate, checkPermission('CREATE_DEVIS'), async (req, res)
     
     res.status(201).json({
       success: true,
-      message: '✅ Devis créé avec succès',
+      message: 'Devis créé avec succès',
       devis: nouveauDevis
     });
     
   } catch (error) {
-    console.error('❌ Erreur création devis:', error);
+    console.error('Erreur création devis:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -173,7 +173,7 @@ router.get('/labo/:espaceId', authenticate, checkPermission('VIEW_DEVIS'), async
     });
     
   } catch (error) {
-    console.error('❌ Erreur listage devis:', error);
+    console.error('Erreur listage devis:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -204,7 +204,7 @@ router.get('/:id', authenticate, checkPermission('VIEW_DEVIS'), async (req, res)
     });
     
   } catch (error) {
-    console.error('❌ Erreur récupération devis:', error);
+    console.error('Erreur récupération devis:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -306,12 +306,12 @@ router.put('/:id', authenticate, checkPermission('UPDATE_DEVIS'), async (req, re
 
     res.json({
       success: true,
-      message: '✅ Devis mis à jour',
+      message: 'Devis mis à jour',
       devis
     });
 
   } catch (error) {
-    console.error('❌ Erreur mise à jour devis:', error);
+    console.error('Erreur mise à jour devis:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -353,7 +353,7 @@ router.delete('/:id', authenticate, checkPermission('DELETE_DEVIS'), async (req,
     });
 
   } catch (error) {
-    console.error('❌ Erreur suppression devis:', error);
+    console.error('Erreur suppression devis:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur lors de la suppression'
@@ -439,7 +439,7 @@ router.patch('/:id/statut', authenticate, checkPermission('UPDATE_DEVIS'), async
     });
 
   } catch (error) {
-    console.error('❌ Erreur changement statut:', error);
+    console.error('Erreur changement statut:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'

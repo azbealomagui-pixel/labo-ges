@@ -90,12 +90,12 @@ router.post('/', authenticate, checkPermission('CREATE_PATIENT'), async (req, re
     
     res.status(201).json({
       success: true,
-      message: '✅ Patient créé avec succès',
+      message: 'Client créé avec succès',
       patient: newPatient
     });
     
   } catch (error) {
-    console.error('❌ Erreur création patient:', error);
+    console.error('Erreur création client:', error);
     
     if (error.code === 11000) {
       return res.status(400).json({ success: false, message: 'Ce numéro de sécurité sociale existe déjà' });
@@ -112,7 +112,7 @@ router.post('/', authenticate, checkPermission('CREATE_PATIENT'), async (req, re
       });
     }
     
-    res.status(500).json({ success: false, message: 'Erreur lors de la création du patient' });
+    res.status(500).json({ success: false, message: 'Erreur lors de la création du client' });
   }
 });
 
@@ -152,8 +152,8 @@ router.get('/labo/:espaceId', authenticate, checkPermission('VIEW_PATIENTS'), as
     });
     
   } catch (error) {
-    console.error('❌ Erreur listage patients:', error);
-    res.status(500).json({ success: false, message: 'Erreur lors du chargement des patients' });
+    console.error('Erreur listage clients:', error);
+    res.status(500).json({ success: false, message: 'Erreur lors du chargement des clients' });
   }
 });
 
@@ -185,7 +185,7 @@ router.get('/search', authenticate, checkPermission('VIEW_PATIENTS'), async (req
     });
     
   } catch (error) {
-    console.error('❌ Erreur recherche patients:', error);
+    console.error('Erreur recherche clients:', error);
     res.status(500).json({ success: false, message: 'Erreur lors de la recherche' });
   }
 });
@@ -198,19 +198,19 @@ router.get('/:id', authenticate, checkPermission('VIEW_PATIENTS'), async (req, r
     const patient = await Patient.findById(req.params.id);
     
     if (!patient) {
-      return res.status(404).json({ success: false, message: 'Patient non trouvé' });
+      return res.status(404).json({ success: false, message: 'Client non trouvé' });
     }
     
     res.json({ success: true, patient });
     
   } catch (error) {
-    console.error('❌ Erreur récupération patient:', error);
+    console.error('Erreur récupération client:', error);
     
     if (error.name === 'CastError') {
       return res.status(400).json({ success: false, message: 'ID patient invalide' });
     }
 
-    res.status(500).json({ success: false, message: 'Erreur lors de la récupération du patient' });
+    res.status(500).json({ success: false, message: 'Erreur lors de la récupération du client' });
   }
 });
 
@@ -233,7 +233,7 @@ router.put('/:id', authenticate, checkPermission('UPDATE_PATIENT'), async (req, 
     );
     
     if (!patient) {
-      return res.status(404).json({ success: false, message: 'Patient non trouvé' });
+      return res.status(404).json({ success: false, message: 'Client non trouvé' });
     }
 
     await AuditLog.create({
@@ -250,10 +250,10 @@ router.put('/:id', authenticate, checkPermission('UPDATE_PATIENT'), async (req, 
       userAgent: req.headers['user-agent']
     });
     
-    res.json({ success: true, message: '✅ Patient mis à jour', patient });
+    res.json({ success: true, message: 'Client mis à jour', patient });
     
   } catch (error) {
-    console.error('❌ Erreur mise à jour patient:', error);
+    console.error('Erreur mise à jour client:', error);
 
     if (error.name === 'ValidationError') {
       return res.status(400).json({
@@ -280,7 +280,7 @@ router.delete('/:id', authenticate, checkPermission('DELETE_PATIENT'), async (re
     if (!patient) {
       return res.status(404).json({
         success: false,
-        message: 'Patient non trouvé'
+        message: 'Client non trouvé'
       });
     }
 
@@ -300,11 +300,11 @@ router.delete('/:id', authenticate, checkPermission('DELETE_PATIENT'), async (re
 
     res.json({
       success: true,
-      message: '🗑️ Patient supprimé définitivement'
+      message: 'Client supprimé définitivement'
     });
 
   } catch (error) {
-    console.error('❌ Erreur suppression patient:', error);
+    console.error('Erreur suppression client:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la suppression'

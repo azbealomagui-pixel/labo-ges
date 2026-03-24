@@ -313,7 +313,7 @@ const Dashboard = () => {
         {/* ===== CARTES STATISTIQUES ===== */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
-            title="Patients"
+            title="Clients"
             value={stats.patients}
             icon={IconPatients}
             bgColor="bg-blue-100"

@@ -90,7 +90,7 @@ const checkPermission = (permission) => {
       });
 
     } catch (error) {
-      console.error('❌ Erreur vérification permission:', error);
+      console.error('Erreur vérification permission:', error);
       return res.status(500).json({
         success: false,
         message: 'Erreur lors de la vérification des permissions'

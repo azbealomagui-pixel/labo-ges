@@ -34,7 +34,7 @@ router.post('/', authenticate, checkPermission('CREATE_FICHE'), async (req, res)
     if (!patient) {
       return res.status(404).json({
         success: false,
-        message: 'Patient non trouvé'
+        message: 'Client non trouvé'
       });
     }
 
@@ -71,7 +71,7 @@ router.post('/', authenticate, checkPermission('CREATE_FICHE'), async (req, res)
     });
 
   } catch (error) {
-    console.error('❌ Erreur création fiche analyse:', error);
+    console.error('Erreur création fiche analyse:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -97,7 +97,7 @@ router.get('/patient/:patientId', authenticate, checkPermission('VIEW_FICHES'), 
     });
 
   } catch (error) {
-    console.error('❌ Erreur listage fiches patient:', error);
+    console.error('Erreur listage fiches client:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -124,7 +124,7 @@ router.get('/labo/:espaceId', authenticate, checkPermission('VIEW_FICHES'), asyn
     });
 
   } catch (error) {
-    console.error('❌ Erreur listage fiches labo:', error);
+    console.error('Erreur listage fiches labo:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors du chargement des fiches'
@@ -155,7 +155,7 @@ router.get('/:id', authenticate, checkPermission('VIEW_FICHES'), async (req, res
     });
 
   } catch (error) {
-    console.error('❌ Erreur récupération fiche:', error);
+    console.error('Erreur récupération fiche:', error);
     
     if (error.name === 'CastError') {
       return res.status(400).json({
@@ -201,7 +201,7 @@ router.patch('/:id/statut', authenticate, checkPermission('UPDATE_FICHE'), async
     });
 
   } catch (error) {
-    console.error('❌ Erreur mise à jour statut:', error);
+    console.error('Erreur mise à jour statut:', error);
     res.status(500).json({
       success: false,
       message: error.message || 'Erreur serveur'
@@ -242,7 +242,7 @@ router.delete('/:id', authenticate, checkPermission('DELETE_FICHE'), async (req,
     });
 
   } catch (error) {
-    console.error('❌ Erreur suppression fiche:', error);
+    console.error('Erreur suppression fiche:', error);
     res.status(500).json({
       success: false,
       message: 'Erreur lors de la suppression'
