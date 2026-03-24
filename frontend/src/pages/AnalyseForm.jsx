@@ -213,8 +213,20 @@ const AnalyseForm = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-5xl mx-auto px-4">
         <div className="mb-6 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {/* Bouton Dashboard */}
+          {/* Titre à gauche */}
+          <h1 className="text-2xl font-bold text-gray-900">
+            {id ? 'Modifier l\'analyse' : 'Nouvelle analyse'}
+          </h1>
+          
+          {/* Groupe de boutons avec marge à droite */}
+          <div className="flex items-center gap-4 mr-8">  {/* mr-8 = marge à droite de 2rem */}
+            <button
+              onClick={() => navigate('/analyses')}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              ← Retour
+            </button>
+            
             <button
               onClick={() => navigate('/dashboard')}
               className="flex items-center gap-2 bg-primary-50 text-primary-700 px-4 py-2 rounded-lg hover:bg-primary-100 transition-colors"
@@ -225,17 +237,6 @@ const AnalyseForm = () => {
               </svg>
               Dashboard
             </button>
-            
-            <button
-              onClick={() => navigate('/analyses')}
-              className="text-gray-600 hover:text-gray-900"
-            >
-              ← Retour
-            </button>
-
-            <h1 className="text-2xl font-bold text-gray-900">
-              {id ? 'Modifier l\'analyse' : 'Nouvelle analyse'}
-            </h1>
           </div>
         </div>
 
