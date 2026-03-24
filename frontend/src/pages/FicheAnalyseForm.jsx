@@ -43,14 +43,14 @@ const FicheAnalyseForm = () => {
   // ===== VÉRIFICATION QUE L'UTILISATEUR EST PRÊT =====
   useEffect(() => {
     if (user && (user.laboratoireId || user.espaceId)) {
-      console.log('✅ Utilisateur prêt:', {
+      console.log('Utilisateur prêt:', {
         id: user._id,
         laboratoireId: user.laboratoireId,
         espaceId: user.espaceId
       });
       setIsUserReady(true);
     } else {
-      console.log('⏳ Utilisateur en cours de chargement...');
+      console.log('Utilisateur en cours de chargement...');
       setIsUserReady(false);
     }
   }, [user]);
@@ -70,9 +70,9 @@ const FicheAnalyseForm = () => {
         
         const response = await api.get(`/patients/labo/${espaceId}`);
         setPatients(response.data.patients || []);
-        console.log(`📦 ${response.data.patients?.length || 0} patients chargés`);
+        console.log(`${response.data.patients?.length || 0} patients chargés`);
       } catch (err) {
-        console.error('❌ Erreur chargement patients:', err);
+        console.error('Erreur chargement patients:', err);
         toast.error('Impossible de charger la liste des patients');
       }
     };
@@ -92,9 +92,9 @@ const FicheAnalyseForm = () => {
         
         const response = await api.get(`/analyses/labo/${espaceId}`);
         setAnalyses(response.data.analyses || []);
-        console.log(`📦 ${response.data.analyses?.length || 0} analyses chargées`);
+        console.log(`${response.data.analyses?.length || 0} analyses chargées`);
       } catch (err) {
-        console.error('❌ Erreur chargement analyses:', err);
+        console.error('Erreur chargement analyses:', err);
         toast.error('Impossible de charger le catalogue des analyses');
       }
     };
@@ -249,16 +249,16 @@ const FicheAnalyseForm = () => {
         }))
       };
 
-      console.log('📦 Données envoyées:', ficheData);
+      console.log('Données envoyées:', ficheData);
 
       const response = await api.post('/fiches-analyses', ficheData);
       
       if (response.data.success) {
-        toast.success('✅ Fiche d\'analyse créée avec succès');
+        toast.success('Fiche d\'analyse créée avec succès');
         setFicheCreeeId(response.data.fiche._id);
       }
     } catch (err) {
-      console.error('❌ Erreur création:', err);
+      console.error('Erreur création:', err);
       toast.error(err.response?.data?.message || 'Erreur lors de la création');
     } finally {
       setLoading(false);
@@ -569,7 +569,7 @@ const FicheAnalyseForm = () => {
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                   </svg>
-                  📄 Générer le PV final
+                  Générer le PV final
                 </button>
                 <button
                   onClick={() => navigate('/patients')}

@@ -55,7 +55,7 @@ const FichesAnalyses = () => {
       });
       
     } catch (error) {
-      console.error('❌ Erreur chargement fiches:', error);
+      console.error('Erreur chargement fiches:', error);
       toast.error('Impossible de charger la liste des fiches');
     } finally {
       setLoading(false);
@@ -108,11 +108,11 @@ const FichesAnalyses = () => {
   const handleConfirmDelete = async () => {
     try {
       await api.delete(`/fiches-analyses/${deleteModal.ficheId}`);
-      toast.success(`🗑️ Fiche de ${deleteModal.patientNom} supprimée`);
+      toast.success(`Fiche de ${deleteModal.patientNom} supprimée`);
       setDeleteModal({ isOpen: false, ficheId: null, patientNom: '' });
       fetchFiches(); // Recharger la liste
     } catch (error) {
-      console.error('❌ Erreur suppression:', error);
+      console.error('Erreur suppression:', error);
       toast.error('Erreur lors de la suppression');
     }
   };
