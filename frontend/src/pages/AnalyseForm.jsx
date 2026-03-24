@@ -225,18 +225,18 @@ const AnalyseForm = () => {
               </svg>
               Dashboard
             </button>
+            
+            <button
+              onClick={() => navigate('/analyses')}
+              className="text-gray-600 hover:text-gray-900"
+            >
+              ← Retour
+            </button>
 
             <h1 className="text-2xl font-bold text-gray-900">
               {id ? 'Modifier l\'analyse' : 'Nouvelle analyse'}
             </h1>
           </div>
-          
-          <button
-            onClick={() => navigate('/analyses')}
-            className="text-gray-600 hover:text-gray-900"
-          >
-            ← Retour
-          </button>
         </div>
 
         <form onSubmit={handleSubmit} className="bg-white rounded-xl shadow-lg p-8 space-y-8">
@@ -285,7 +285,7 @@ const AnalyseForm = () => {
                   value={formData.nom.en}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  placeholder="English name"
+                  placeholder="E.coli, pH eau, ..."
                 />
               </div>
 
@@ -297,7 +297,7 @@ const AnalyseForm = () => {
                   value={formData.nom.es}
                   onChange={handleChange}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg"
-                  placeholder="Nombre en español"
+                  placeholder="E.coli, pH eau, ..."
                 />
               </div>
             </div>
@@ -308,7 +308,7 @@ const AnalyseForm = () => {
             <h2 className="text-lg font-semibold text-gray-900 mb-4 border-b pb-2">Paramètres</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-medium mb-1">Paramètre</label>
+                <label className="block text-sm font-medium mb-1">Catégorie</label>
                 <select
                   name="categorie"
                   value={formData.categorie}
