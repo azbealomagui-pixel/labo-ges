@@ -148,7 +148,7 @@ const Patients = () => {
         observations: p.observations || ''
       }));
 
-      exportToExcel(patientsAExporter, `patients-${new Date().toISOString().split('T')[0]}`, {
+      exportToExcel(patientsAExporter, `clients-${new Date().toISOString().split('T')[0]}`, {
         nom: 'Nom',
         prenom: 'Prénom',
         email: 'Email',
@@ -294,12 +294,12 @@ const Patients = () => {
                 </svg>
               </div>
               <h3 className="text-lg font-medium text-gray-900 mb-2">
-                {searchTerm ? 'Aucun résultat' : 'Aucun patient'}
+                {searchTerm ? 'Aucun résultat' : 'Aucun client'}
               </h3>
               <p className="text-gray-500 mb-6">
                 {searchTerm 
-                  ? `Aucun patient ne correspond à "${searchTerm}"`
-                  : 'Commencez par ajouter votre premier patient.'}
+                  ? `Aucun client ne correspond à "${searchTerm}"`
+                  : 'Commencez par ajouter votre premier client.'}
               </p>
               {!searchTerm && (
                 <button

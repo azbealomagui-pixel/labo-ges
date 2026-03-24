@@ -26,7 +26,7 @@ const PatientForm = () => {
     adresse: '',
     numeroSecuriteSociale: '',
     groupeSanguin: 'Inconnu',
-    allergies: [],
+    allergies: '', // MODIFIÉ : string au lieu de tableau
     observations: ''
   });
 
@@ -95,7 +95,14 @@ const PatientForm = () => {
       try {
         setLoading(true);
         const response = await api.get(`/patients/${id}`);
-        setFormData(response.data.patient);
+        const patientData = response.data.patient;
+        
+        // Si allergies est un tableau (ancien format), le convertir en string
+        if (Array.isArray(patientData.allergies)) {
+          patientData.allergies = patientData.allergies.join(', ');
+        }
+        
+        setFormData(patientData);
       } catch (err) {
         console.error('Erreur chargement client:', err);
         toast.error('Impossible de charger les données du client');
@@ -112,15 +119,8 @@ const PatientForm = () => {
   const handleChange = (e) => {
     const { name, value } = e.target;
     
-    // Gestion spéciale pour les allergies
-    if (name === 'allergies') {
-      setFormData(prev => ({
-        ...prev,
-        allergies: value.split(',').map(a => a.trim()).filter(a => a)
-      }));
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
+    // Gestion uniforme pour tous les champs (plus de logique spéciale pour allergies)
+    setFormData(prev => ({ ...prev, [name]: value }));
     
     // Valider le champ modifié
     validateField(name, value);
@@ -156,11 +156,11 @@ const PatientForm = () => {
   };
 
   // ===== SOUMISSION DU FORMULAIRE =====
-    const handleSubmit = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     
     if (!validateForm()) {
-      toast.error('Veuillez corriger dûment remplir le formulaire');
+      toast.error('Veuillez corriger les erreurs dans le formulaire');
       return;
     }
 
@@ -181,13 +181,13 @@ const PatientForm = () => {
         toast.success('Client modifié avec succès');
       } else {
         await api.post('/patients', dataToSend);
-        toast.success('Clients créé avec succès');
+        toast.success('Client créé avec succès');
       }
       
       navigate('/patients');
     } catch (err) {
       console.error('Erreur sauvegarde:', err);
-      console.error('📤 Données envoyées:', err.config?.data);
+      console.error('Données envoyées:', err.config?.data);
       toast.error(err.response?.data?.message || 'Erreur lors de la sauvegarde');
     } finally {
       setLoading(false);
@@ -336,25 +336,22 @@ const PatientForm = () => {
               { value: 'O-', label: 'O-' }
             ])}
 
-            {/* Allergies */}
+            {/* Besoin d'analyse - MODIFIÉ : maintenant en textarea */}
             <div>
-              <label className="block text-sm font-medium mb-2">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
                 Besoin d'analyse
               </label>
-              <input
-                type="text"
+              <textarea
                 name="allergies"
-                value={formData.allergies.join(', ')}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setFormData({
-                    ...formData,
-                    allergies: value.split(',').map(a => a.trim()).filter(a => a)
-                  });
-                }}
-                placeholder="ex: Conductivité électrique, Carbone organique total (COT)"
-                className="w-full px-4 py-2 border rounded-lg"
+                value={formData.allergies}
+                onChange={handleChange}
+                rows="4"
+                placeholder="ex: Conductivité électrique, Carbone organique total (COT), Analyse de l'azote, etc."
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-transparent"
               />
+              <p className="mt-1 text-sm text-gray-500">
+                Séparez les différentes analyses par des virgules ou retour à la ligne
+              </p>
             </div>
 
             {/* Observations */}

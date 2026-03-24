@@ -9,12 +9,12 @@ const patientSchema = new mongoose.Schema({
   // Informations personnelles
   nom: {
     type: String,
-    required: [true, 'Le nom du patient est obligatoire'],
+    required: [true, 'Le nom du client est obligatoire'],
     trim: true
   },
   prenom: {
     type: String,
-    required: [true, 'Le prénom du patient est obligatoire'],
+    required: [true, 'Le prénom du client est obligatoire'],
     trim: true
   },
   dateNaissance: {
